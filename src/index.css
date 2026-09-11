@@ -1,0 +1,178 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Transición suave para alternancia de temas */
+html, body {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+/* Soporte completo de tema oscuro sin alterar diagramación ni estilos existentes */
+html.dark body {
+  background-color: #0b0f19;
+  color: #f1f5f9;
+}
+
+html.dark header,
+html.dark .bg-white {
+  background-color: #111827 !important;
+  color: #f8fafc;
+  border-color: #1f2937 !important;
+}
+
+html.dark .bg-slate-50 {
+  background-color: #0f172a !important;
+  border-color: #1e293b !important;
+}
+
+html.dark .bg-slate-100 {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+html.dark .text-slate-900 {
+  color: #f8fafc !important;
+}
+
+html.dark .text-slate-800 {
+  color: #f1f5f9 !important;
+}
+
+html.dark .text-slate-700 {
+  color: #cbd5e1 !important;
+}
+
+html.dark .text-slate-600 {
+  color: #94a3b8 !important;
+}
+
+html.dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+html.dark .border-slate-200 {
+  border-color: #1f2937 !important;
+}
+
+html.dark .border-slate-100 {
+  border-color: #1f2937 !important;
+}
+
+html.dark .border-slate-300 {
+  border-color: #374151 !important;
+}
+
+html.dark select,
+html.dark input,
+html.dark textarea {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #374151 !important;
+}
+
+/* Legibilidad en popups del mapa Leaflet en ambos modos */
+.leaflet-popup-content-wrapper {
+  border-radius: 8px !important;
+}
+
+html.dark .leaflet-popup-content-wrapper {
+  background: #111827 !important;
+  color: #f8fafc !important;
+  border: 1px solid #374151 !important;
+}
+
+html.dark .leaflet-popup-tip {
+  background: #111827 !important;
+}
+
+/* ==========================================================================
+   Soporte Profesional en Modo Oscuro para la Sección de Reportes 24 Horas
+   Corrige el contraste de Datos Técnicos Verificados, Medida Preventiva INDECI,
+   tarjetas y enlaces directos en modo oscuro.
+   ========================================================================== */
+html.dark #seccion-reporte-24-horas {
+  background-color: #0b132b !important;
+  border-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+html.dark #seccion-reporte-24-horas .tarjeta-reporte-24h {
+  background-color: #111a36 !important;
+  border-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+html.dark #seccion-reporte-24-horas .tarjeta-reporte-24h:hover {
+  background-color: #162044 !important;
+  border-color: #dc2626 !important;
+}
+
+/* Caja de Datos Técnicos Verificados (IGP / SENAMHI / DHN) en modo oscuro */
+html.dark #seccion-reporte-24-horas .caja-datos-tecnicos {
+  background-color: #1c2646 !important;
+  border-color: #2a3b68 !important;
+  color: #e2e8f0 !important;
+}
+
+html.dark #seccion-reporte-24-horas .caja-datos-tecnicos span,
+html.dark #seccion-reporte-24-horas .caja-datos-tecnicos li {
+  color: #e2e8f0 !important;
+}
+
+html.dark #seccion-reporte-24-horas .caja-datos-tecnicos .titulo-datos-tecnicos {
+  color: #93c5fd !important;
+}
+
+/* Caja de Medida Preventiva INDECI en modo oscuro */
+html.dark #seccion-reporte-24-horas .caja-medida-indeci {
+  background-color: rgba(69, 10, 10, 0.45) !important;
+  border-color: rgba(185, 28, 28, 0.65) !important;
+}
+
+html.dark #seccion-reporte-24-horas .caja-medida-indeci span,
+html.dark #seccion-reporte-24-horas .caja-medida-indeci p {
+  color: #fca5a5 !important;
+}
+
+/* Ubicación y Parámetros Clave en modo oscuro */
+html.dark #seccion-reporte-24-horas .caja-ubicacion-georef,
+html.dark #seccion-reporte-24-horas .caja-parametros-grid {
+  background-color: #18223f !important;
+  border-color: #24345d !important;
+  color: #f1f5f9 !important;
+}
+
+html.dark #seccion-reporte-24-horas .etiqueta-parametro {
+  color: #94a3b8 !important;
+}
+
+html.dark #seccion-reporte-24-horas .valor-parametro {
+  color: #ffffff !important;
+}
+
+/* Botones en modo oscuro */
+html.dark #seccion-reporte-24-horas .btn-infografia {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+html.dark #seccion-reporte-24-horas .btn-infografia:hover {
+  background-color: #334155 !important;
+}
+
+html.dark #seccion-reporte-24-horas .btn-ver-boletin {
+  background-color: #0f172a !important;
+  border: 1px solid #334155 !important;
+  color: #ffffff !important;
+}
+
+html.dark #seccion-reporte-24-horas .btn-ver-boletin:hover {
+  background-color: #000000 !important;
+  border-color: #64748b !important;
+}
+

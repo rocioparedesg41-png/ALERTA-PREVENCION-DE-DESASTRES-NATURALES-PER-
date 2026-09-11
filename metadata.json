@@ -1,0 +1,10 @@
+{
+  "name": "Alerta y Prevención de Desastres naturales en Perú",
+  "description": "Sistema integral de alerta y evacuación ante sismos, tsunamis, huaicos, inundaciones, heladas, sequías y erupciones volcánicas para los 24 departamentos, Callao, 196 provincias y 1893 distritos del Perú.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
