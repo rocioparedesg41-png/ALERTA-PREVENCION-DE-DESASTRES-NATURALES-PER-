@@ -20,12 +20,13 @@ import {
   Smartphone,
 } from 'lucide-react';
 import { DepartmentData, DistrictData, DisasterType, ProvinceData } from './types/disasters';
-import { PERU_DEPARTMENTS } from './data/peruData';
+import { PERU_DEPARTMENTS, findClosestDistrict } from './data/peruData';
 import { LoginCover } from './components/LoginCover';
 import { HeaderNav } from './components/HeaderNav';
 import { AlarmBanner } from './components/AlarmBanner';
 import { LocationSelector } from './components/LocationSelector';
 import { PeruMapViewer } from './components/PeruMapViewer';
+import { MapErrorBoundary } from './components/MapErrorBoundary';
 import { DisasterRiskCard } from './components/DisasterRiskCard';
 import { InfographicViewer } from './components/InfographicViewer';
 import { ChecklistOk } from './components/ChecklistOk';
@@ -52,10 +53,24 @@ export default function App() {
   // Active Application Tab (eliminates long landing page scrolling)
   const [activeTab, setActiveTab] = useState<AppTab>('ubicacion');
 
-  // Selected Geography (Defaults to Lima - Lima - Cercado de Lima)
-  const [selectedDept, setSelectedDept] = useState<DepartmentData>(() => PERU_DEPARTMENTS[0]);
-  const [selectedProv, setSelectedProv] = useState<ProvinceData>(() => PERU_DEPARTMENTS[0].provinces[0]);
-  const [selectedDist, setSelectedDist] = useState<DistrictData>(() => PERU_DEPARTMENTS[0].provinces[0].districts[0]);
+  // Selected Geography: Configura la vista inicial exclusivamente por defecto en Lima, Lima, Lima
+  const [selectedDept, setSelectedDept] = useState<DepartmentData>(() => {
+    return PERU_DEPARTMENTS.find((d) => d.id === 'lima' || d.name.toLowerCase() === 'lima') || PERU_DEPARTMENTS[0];
+  });
+
+  const [selectedProv, setSelectedProv] = useState<ProvinceData>(() => {
+    const limaDept = PERU_DEPARTMENTS.find((d) => d.id === 'lima' || d.name.toLowerCase() === 'lima') || PERU_DEPARTMENTS[0];
+    return limaDept.provinces.find((p) => p.name.toLowerCase() === 'lima') || limaDept.provinces[0];
+  });
+
+  const [selectedDist, setSelectedDist] = useState<DistrictData>(() => {
+    const limaDept = PERU_DEPARTMENTS.find((d) => d.id === 'lima' || d.name.toLowerCase() === 'lima') || PERU_DEPARTMENTS[0];
+    const limaProv = limaDept.provinces.find((p) => p.name.toLowerCase() === 'lima') || limaDept.provinces[0];
+    return (
+      limaProv.districts.find((di) => di.name.toLowerCase() === 'lima' || di.name.toLowerCase().includes('cercado')) ||
+      limaProv.districts[0]
+    );
+  });
 
   // Active Disaster
   const [activeDisaster, setActiveDisaster] = useState<DisasterType>(() => 'sismo');
@@ -407,11 +422,18 @@ export default function App() {
                 transition={{ duration: 0.2 }}
                 className="space-y-4"
               >
-                <PeruMapViewer
-                  district={selectedDist}
-                  departmentName={selectedDept.name}
-                  provinceName={selectedProv.name}
-                />
+                <MapErrorBoundary>
+                  <PeruMapViewer
+                    district={selectedDist}
+                    departmentName={selectedDept.name}
+                    provinceName={selectedProv.name}
+                    onLocationDetected={(dept, prov, dist) => {
+                      setSelectedDept(dept);
+                      setSelectedProv(prov);
+                      setSelectedDist(dist);
+                    }}
+                  />
+                </MapErrorBoundary>
               </motion.div>
             )}
 
@@ -608,13 +630,13 @@ export default function App() {
         </div>
       </footer>
 
-      {/* Live Emergency Ticker Footer (Resolución de superposición con marca de Netlify en móvil y escritorio) */}
+      {/* Live Emergency Ticker Footer */}
       <footer
         className="h-11 bg-slate-950 text-white flex items-center px-3 sm:px-6 shrink-0 fixed bottom-0 left-0 right-0 z-30 shadow-2xl border-t border-slate-800 transition-colors hover:bg-slate-900 cursor-pointer select-none"
         onClick={() => setIsLiveNewsOpen(true)}
         title="Haga clic aquí para abrir todas las noticias en vivo de las páginas oficiales"
       >
-        <div className="flex items-center gap-2.5 sm:gap-3.5 w-full overflow-hidden max-w-7xl mx-auto pr-36 sm:pr-48 md:pr-60">
+        <div className="flex items-center gap-2.5 sm:gap-3.5 w-full overflow-hidden max-w-7xl mx-auto">
           {/* Botón de acceso a noticias en vivo oficial */}
           <button
             type="button"

@@ -2,9 +2,17 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Transición suave para alternancia de temas */
+/* Transición suave para alternancia de temas y prevención de desborde horizontal */
 html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
   transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+#root {
+  overflow-x: hidden;
+  max-width: 100vw;
+  min-height: 100vh;
 }
 
 html.dark {
@@ -74,7 +82,36 @@ html.dark textarea {
   border-color: #374151 !important;
 }
 
-/* Legibilidad en popups del mapa Leaflet en ambos modos */
+/* ==========================================================================
+   Leaflet Map Engine & Tile Configuration
+   ========================================================================== */
+.leaflet-container {
+  background-color: #f1f5f9 !important;
+  outline: none;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 500px !important;
+  font-family: inherit;
+}
+
+html.dark .leaflet-container {
+  background-color: #0f172a !important;
+}
+
+/* Asegurar que las reglas de Tailwind no compriman ni distorsionen las teselas de Leaflet */
+.leaflet-container .leaflet-tile,
+.leaflet-container img.leaflet-tile {
+  max-width: none !important;
+  max-height: none !important;
+}
+
+.mapa-fullscreen-overlay,
+:fullscreen,
+:-webkit-full-screen {
+  background-color: rgba(15, 23, 42, 0.97) !important;
+  backdrop-filter: blur(8px);
+}
+
 .leaflet-popup-content-wrapper {
   border-radius: 8px !important;
 }

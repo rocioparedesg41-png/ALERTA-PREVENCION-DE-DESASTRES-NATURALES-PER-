@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Send, X, Phone, User, CheckCircle, AlertTriangle, MessageSquare, Copy, Check, Radio, Smartphone } from 'lucide-react';
+import { Send, X, Phone, User, CheckCircle, AlertTriangle, MessageSquare, Copy, Check, Radio, Smartphone, Users, MapPin } from 'lucide-react';
 import { DistrictData } from '../types/disasters';
 import { sendOfflineSms, openWhatsAppSos, buildSosMessage, getSmsUri } from '../utils/smsSender';
 
@@ -27,8 +27,10 @@ export const SosModal: React.FC<SosModalProps> = ({
 
   const [selectedRecipient, setSelectedRecipient] = useState<'contact1' | 'contact2'>('contact1');
   const [sosType, setSosType] = useState<'a_salvo' | 'necesito_ayuda'>('necesito_ayuda');
+  // false = SMS Celular Puro 100% Offline sin enlaces web (evita que Google Messages/RCS falle sin internet)
+  const [includeMapLink, setIncludeMapLink] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [sentNotice, setSentNotice] = useState(false);
+  const [sentNotice, setSentNotice] = useState<string | null>(null);
 
   // Save contacts on change
   useEffect(() => {
@@ -42,55 +44,70 @@ export const SosModal: React.FC<SosModalProps> = ({
 
   if (!isOpen) return null;
 
+  // Resolver coordenadas y nombres de ubicación exacta fijada por GPS si existe
+  const activeLocation = (() => {
+    try {
+      const saved = localStorage.getItem('ultima_ubicacion');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.lat === 'number' && typeof parsed.lng === 'number') {
+          return {
+            lat: parsed.lat,
+            lng: parsed.lng,
+            districtName: parsed.districtName || district.name,
+            provinceName: parsed.provinceName || provinceName,
+            departmentName: parsed.departmentName || departmentName,
+            isGpsLive: true,
+          };
+        }
+      }
+    } catch (e) {}
+    return {
+      lat: district.lat,
+      lng: district.lng,
+      districtName: district.name,
+      provinceName,
+      departmentName,
+      isGpsLive: false,
+    };
+  })();
+
   const currentContact =
     selectedRecipient === 'contact1'
       ? { name: contact1Name, phone: contact1Phone }
       : { name: contact2Name, phone: contact2Phone };
 
-  const messagePreview = buildSosMessage({
+  const isDefaultPhone = currentContact.phone.trim() === '987654321' || currentContact.phone.trim() === '912345678';
+
+  const sosOptions = {
     type: sosType,
     recipientName: currentContact.name,
     recipientPhone: currentContact.phone,
-    districtName: district.name,
-    provinceName,
-    departmentName,
-    coords: { lat: district.lat, lng: district.lng },
-  });
+    districtName: activeLocation.districtName,
+    provinceName: activeLocation.provinceName,
+    departmentName: activeLocation.departmentName,
+    coords: { lat: activeLocation.lat, lng: activeLocation.lng },
+    includeMapLink,
+  };
 
-  const smsDirectUri = getSmsUri({
-    type: sosType,
-    recipientName: currentContact.name,
-    recipientPhone: currentContact.phone,
-    districtName: district.name,
-    provinceName,
-    departmentName,
-    coords: { lat: district.lat, lng: district.lng },
-  });
+  const messagePreview = buildSosMessage(sosOptions);
+  const smsUriContactPicker = getSmsUri(sosOptions, false);
+  const smsUriDirect = getSmsUri(sosOptions, true);
 
-  const handleSendSms = () => {
-    setSentNotice(true);
-    setTimeout(() => setSentNotice(false), 5000);
-    sendOfflineSms({
-      type: sosType,
-      recipientName: currentContact.name,
-      recipientPhone: currentContact.phone,
-      districtName: district.name,
-      provinceName,
-      departmentName,
-      coords: { lat: district.lat, lng: district.lng },
-    });
+  // Enviar a la agenda o contacto nativo (sin número predefinido)
+  const handleOpenSmsContactPicker = () => {
+    setSentNotice('Abriendo la aplicación de Mensajes SMS para seleccionar de tu agenda de contactos...');
+    setTimeout(() => setSentNotice(null), 5000);
+  };
+
+  // Enviar directo al número ingresado
+  const handleSendDirectSms = () => {
+    setSentNotice(`Abriendo Mensajes SMS para enviar directamente al número ${currentContact.phone}...`);
+    setTimeout(() => setSentNotice(null), 5000);
   };
 
   const handleSendWhatsApp = () => {
-    openWhatsAppSos({
-      type: sosType,
-      recipientName: currentContact.name,
-      recipientPhone: currentContact.phone,
-      districtName: district.name,
-      provinceName,
-      departmentName,
-      coords: { lat: district.lat, lng: district.lng },
-    });
+    openWhatsAppSos(sosOptions);
   };
 
   const handleCopyMessage = () => {
@@ -115,10 +132,16 @@ export const SosModal: React.FC<SosModalProps> = ({
                 <Send className="w-5 h-5" />
               </div>
               <div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200 uppercase">
                     100% Sin Internet (Red Celular GSM)
                   </span>
+                  {activeLocation.isGpsLive && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
+                      <MapPin className="w-3 h-3" />
+                      GPS Actual
+                    </span>
+                  )}
                 </div>
                 <h3 className="text-base sm:text-lg font-bold text-slate-900">
                   Mensajería de Emergencia SOS
@@ -134,15 +157,22 @@ export const SosModal: React.FC<SosModalProps> = ({
             </button>
           </div>
 
-          <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-            En caso de sismo o caída de datos móviles, este sistema despacha un mensaje SMS de texto estándar directamente a través de las antenas celulares sin requerir internet.
+          <p className="text-xs text-slate-600 mb-3 leading-relaxed">
+            Envía tu ubicación exacta y coordenadas satelitales mediante SMS convencional sin necesidad de datos móviles o internet.
           </p>
 
           {/* Contact 1 & 2 Config */}
-          <div className="space-y-3 mb-5">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-              Sus 2 Contactos de Emergencia Designados:
-            </span>
+          <div className="space-y-3 mb-4">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                Tus 2 Contactos de Emergencia:
+              </span>
+              {isDefaultPhone && (
+                <span className="text-[10px] text-amber-600 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                  ⚠️ Modifica el número con tu celular real
+                </span>
+              )}
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Contact 1 */}
@@ -177,7 +207,7 @@ export const SosModal: React.FC<SosModalProps> = ({
                   type="tel"
                   value={contact1Phone}
                   onChange={(e) => setContact1Phone(e.target.value)}
-                  placeholder="Número de celular"
+                  placeholder="Número celular (9 dígitos)"
                   className="w-full text-xs font-mono bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-800 focus:outline-none focus:border-slate-800"
                 />
               </div>
@@ -214,67 +244,90 @@ export const SosModal: React.FC<SosModalProps> = ({
                   type="tel"
                   value={contact2Phone}
                   onChange={(e) => setContact2Phone(e.target.value)}
-                  placeholder="Número de celular"
+                  placeholder="Número celular (9 dígitos)"
                   className="w-full text-xs font-mono bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-800 focus:outline-none focus:border-slate-800"
                 />
               </div>
             </div>
           </div>
 
-          {/* SOS Message Selection: 2 Options */}
-          <div className="space-y-2 mb-4">
+          {/* SOS Message Selection */}
+          <div className="space-y-2 mb-3">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-              Seleccione el Tipo de Mensaje a Transmitir:
+              Tipo de Mensaje:
             </span>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={() => setSosType('necesito_ayuda')}
-                className={`p-3 rounded-lg text-left border transition-colors cursor-pointer flex items-center gap-2.5 ${
+                className={`p-2.5 rounded-lg text-left border transition-colors cursor-pointer flex items-center gap-2.5 ${
                   sosType === 'necesito_ayuda'
                     ? 'bg-red-50 border-2 border-red-600 text-red-900 shadow-xs'
                     : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 <AlertTriangle
-                  className={`w-5 h-5 shrink-0 ${
+                  className={`w-4 h-4 shrink-0 ${
                     sosType === 'necesito_ayuda' ? 'text-red-600' : 'text-slate-400'
                   }`}
                 />
                 <div>
-                  <div className="text-xs font-bold text-slate-900">1. Necesito ayuda urgente</div>
-                  <div className="text-[10px] text-slate-500">Urgencia inmediata / Rescate</div>
+                  <div className="text-xs font-bold text-slate-900">Necesito ayuda urgente</div>
+                  <div className="text-[10px] text-slate-500">Rescate / Evacuación</div>
                 </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => setSosType('a_salvo')}
-                className={`p-3 rounded-lg text-left border transition-colors cursor-pointer flex items-center gap-2.5 ${
+                className={`p-2.5 rounded-lg text-left border transition-colors cursor-pointer flex items-center gap-2.5 ${
                   sosType === 'a_salvo'
                     ? 'bg-green-50 border-2 border-green-600 text-green-900 shadow-xs'
                     : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 <CheckCircle
-                  className={`w-5 h-5 shrink-0 ${
+                  className={`w-4 h-4 shrink-0 ${
                     sosType === 'a_salvo' ? 'text-green-600' : 'text-slate-400'
                   }`}
                 />
                 <div>
-                  <div className="text-xs font-bold text-slate-900">2. Estoy a salvo</div>
-                  <div className="text-[10px] text-slate-500">Sin lesiones graves</div>
+                  <div className="text-xs font-bold text-slate-900">Estoy a salvo</div>
+                  <div className="text-[10px] text-slate-500">En zona segura</div>
                 </div>
               </button>
             </div>
           </div>
 
+          {/* Formato de Transmisión: Celular Puro vs Con Enlace Maps */}
+          <div className="mb-3 p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 text-xs">
+            <div className="space-y-0.5">
+              <span className="font-bold text-slate-800 block">Formato de SMS:</span>
+              <span className="text-[11px] text-slate-500">
+                {includeMapLink
+                  ? 'Con enlace web Google Maps (requiere que el receptor tenga datos)'
+                  : 'SMS puro sin enlaces (100% garantizado en antenas 2G/3G sin datos)'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIncludeMapLink(!includeMapLink)}
+              className={`px-2.5 py-1 rounded text-xs font-bold transition-colors cursor-pointer shrink-0 border ${
+                !includeMapLink
+                  ? 'bg-emerald-600 border-emerald-700 text-white'
+                  : 'bg-slate-200 border-slate-300 text-slate-700'
+              }`}
+            >
+              {!includeMapLink ? '✓ 100% Offline' : 'Con Link Maps'}
+            </button>
+          </div>
+
           {/* Live Message Preview Box */}
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 mb-5">
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 mb-4">
             <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1.5">
               <span className="font-mono">
-                Destinatario: <strong className="text-slate-900 font-bold">{currentContact.name}</strong> ({currentContact.phone})
+                Ubicación: <strong className="text-slate-900">{activeLocation.districtName}, {activeLocation.provinceName}</strong>
               </span>
               <button
                 type="button"
@@ -285,29 +338,45 @@ export const SosModal: React.FC<SosModalProps> = ({
                 {copied ? 'Copiado' : 'Copiar texto'}
               </button>
             </div>
-            <p className="text-xs font-mono text-slate-800 leading-relaxed bg-white p-2.5 rounded border border-slate-200 select-all">
+            <p className="text-xs font-mono text-slate-800 leading-relaxed bg-white p-2.5 rounded border border-slate-200 select-all break-all">
               {messagePreview}
             </p>
           </div>
 
-          {/* Primary Action Button: Dispatch Direct SMS Text Message */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {/* Action Buttons: Reestructurados con enlaces nativos del protocolo sms: para máxima fiabilidad offline */}
+          <div className="space-y-2">
+            {/* Opción 1: Abrir la aplicación de SMS y elegir de la agenda (Evita números erróneos) */}
             <a
-              href={smsDirectUri}
-              onClick={handleSendSms}
-              className="py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors cursor-pointer text-xs sm:text-sm text-center"
+              href={smsUriContactPicker}
+              target="_top"
+              rel="noopener"
+              onClick={handleOpenSmsContactPicker}
+              className="w-full py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors cursor-pointer text-xs sm:text-sm text-center active:scale-95 no-underline"
             >
-              <Smartphone className="w-4 h-4" />
-              Enviar SMS directo al Celular
+              <Users className="w-4 h-4" />
+              <span>Abrir Mensajes SMS (Elegir de mi Agenda de Contactos)</span>
             </a>
 
+            {/* Opción 2: Enviar directo al número configurado */}
+            <a
+              href={smsUriDirect}
+              target="_top"
+              rel="noopener"
+              onClick={handleSendDirectSms}
+              className="w-full py-2 px-4 bg-slate-900 hover:bg-black text-white font-semibold rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors cursor-pointer text-xs text-center active:scale-95 no-underline"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-slate-300" />
+              <span>Enviar directo al número: {currentContact.phone} ({currentContact.name})</span>
+            </a>
+
+            {/* Opción 3: WhatsApp si cuenta con datos */}
             <button
               type="button"
               onClick={handleSendWhatsApp}
-              className="py-2.5 px-4 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded-lg border border-slate-200 flex items-center justify-center gap-2 transition-colors cursor-pointer text-xs sm:text-sm shadow-xs"
+              className="w-full py-1.5 px-4 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded-lg border border-slate-200 flex items-center justify-center gap-2 transition-colors cursor-pointer text-xs shadow-xs active:scale-95"
             >
-              <MessageSquare className="w-4 h-4 text-green-600" />
-              Enviar por WhatsApp
+              <MessageSquare className="w-3.5 h-3.5 text-green-600" />
+              <span>Enviar por WhatsApp (requiere internet)</span>
             </button>
           </div>
 
@@ -315,12 +384,10 @@ export const SosModal: React.FC<SosModalProps> = ({
             <motion.div
               initial={{ opacity: 0, y: -5 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mt-3 p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-xs flex items-center gap-2"
+              className="mt-3 p-2.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-900 text-xs flex items-center gap-2"
             >
-              <Smartphone className="w-4 h-4 text-red-600 shrink-0" />
-              <span>
-                Abriendo la aplicación de <strong>Mensajes de Texto SMS</strong> para enviar directo al número móvil <strong>{currentContact.phone}</strong>.
-              </span>
+              <Smartphone className="w-4 h-4 text-blue-600 shrink-0" />
+              <span>{sentNotice}</span>
             </motion.div>
           )}
         </motion.div>

@@ -224,3 +224,42 @@ export function searchLocations(query: string) {
   }
   return results;
 }
+
+/**
+ * Calcula con fórmula de Haversine el distrito peruano más cercano a las coordenadas GPS dadas.
+ */
+export function findClosestDistrict(lat: number, lng: number) {
+  let closest: {
+    department: DepartmentData;
+    province: typeof PERU_DEPARTMENTS[0]['provinces'][0];
+    district: typeof PERU_DEPARTMENTS[0]['provinces'][0]['districts'][0];
+    distanceKm: number;
+  } | null = null;
+
+  let minDistance = Infinity;
+
+  for (const dept of PERU_DEPARTMENTS) {
+    for (const prov of dept.provinces) {
+      for (const dist of prov.districts) {
+        const dLat = (dist.lat - lat) * (Math.PI / 180);
+        const dLng = (dist.lng - lng) * (Math.PI / 180);
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(lat * (Math.PI / 180)) *
+            Math.cos(dist.lat * (Math.PI / 180)) *
+            Math.sin(dLng / 2) *
+            Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distanceKm = 6371 * c;
+
+        if (distanceKm < minDistance) {
+          minDistance = distanceKm;
+          closest = { department: dept, province: prov, district: dist, distanceKm };
+        }
+      }
+    }
+  }
+
+  return closest;
+}
+
