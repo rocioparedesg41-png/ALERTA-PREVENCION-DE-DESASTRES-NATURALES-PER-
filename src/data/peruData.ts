@@ -1,4 +1,4 @@
-import { DepartmentData, DisasterInfo, DisasterType } from '../types/disasters';
+import { DepartmentData, DisasterInfo, DisasterType, ProvinceData, DistrictData } from '../types/disasters';
 import completeDepartmentsJson from './peruDepartmentsComplete.json';
 
 export const DISASTER_PROTOCOLS: Record<DisasterType, DisasterInfo> = {
@@ -203,8 +203,8 @@ export function searchLocations(query: string) {
   if (!q) return [];
   const results: {
     department: DepartmentData;
-    province: { name: string };
-    district: typeof PERU_DEPARTMENTS[0]['provinces'][0]['districts'][0];
+    province: ProvinceData;
+    district: DistrictData;
   }[] = [];
 
   for (const dept of PERU_DEPARTMENTS) {

@@ -291,7 +291,7 @@ export default function App() {
                   province={selectedProv}
                   department={selectedDept}
                   onSelectDisaster={(disaster) => {
-                    setActiveTab('resumen');
+                    setActiveTab('ubicacion');
                     setActiveDisaster(disaster);
                     setTimeout(() => {
                       const el = document.getElementById('seccion-protocolo-riesgo');
