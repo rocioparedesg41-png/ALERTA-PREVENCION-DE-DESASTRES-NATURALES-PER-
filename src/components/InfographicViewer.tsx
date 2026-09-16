@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Image as ImageIcon, ZoomIn, X, Download, Shield, ExternalLink } from 'lucide-react';
 import { DisasterType } from '../types/disasters';
-import { DISASTER_PROTOCOLS } from '../data/peruData';
+import { DISASTER_PROTOCOLS, getDisasterProtocol } from '../data/peruData';
 
 interface InfographicViewerProps {
   activeDisaster: DisasterType;
@@ -14,17 +14,18 @@ export const InfographicViewer: React.FC<InfographicViewerProps> = ({
   onSelectDisaster,
 }) => {
   const [isZoomed, setIsZoomed] = useState(false);
-  const protocol = DISASTER_PROTOCOLS[activeDisaster] || DISASTER_PROTOCOLS.sismo;
+  const protocol = getDisasterProtocol(activeDisaster);
 
   const disasterOptions: { type: DisasterType; label: string; icon: string }[] = [
     { type: 'sismo', label: 'Sismo', icon: '⚡' },
     { type: 'tsunami', label: 'Tsunami', icon: '🌊' },
-    { type: 'huayco', label: 'Huaico', icon: '🏔️' },
+    { type: 'huayco_deslizamiento', label: 'Huaico / Deslizamiento', icon: '🏔️' },
     { type: 'inundacion', label: 'Inundación', icon: '🌧️' },
-    { type: 'deslizamiento', label: 'Deslizamiento', icon: '⚠️' },
     { type: 'erupcion_volcanica', label: 'Volcán', icon: '🌋' },
     { type: 'helada_friaje', label: 'Helada / Friaje', icon: '❄️' },
     { type: 'sequia', label: 'Sequía', icon: '☀️' },
+    { type: 'viento_fuerte', label: 'Viento Fuerte', icon: '💨' },
+    { type: 'granizada', label: 'Granizada', icon: '🌨️' },
   ];
 
   return (
@@ -36,7 +37,7 @@ export const InfographicViewer: React.FC<InfographicViewerProps> = ({
             Infografía de:
           </span>
           {disasterOptions.map((opt) => {
-            const isSelected = activeDisaster === opt.type;
+            const isSelected = activeDisaster.toLowerCase() === opt.type.toLowerCase();
             return (
               <button
                 key={opt.type}

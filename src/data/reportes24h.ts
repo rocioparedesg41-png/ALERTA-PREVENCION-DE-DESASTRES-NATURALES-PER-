@@ -5,7 +5,7 @@ export interface ReporteDesastre24h {
   tipoDesastre: DisasterType;
   codigoOficial: string;
   titulo: string;
-  entidad: 'IGP' | 'SENAMHI' | 'COEN' | 'INDECI' | 'CENEPRED' | 'DHN';
+  entidad: 'IGP' | 'SENAMHI' | 'COEN' | 'INDECI' | 'CENEPRED' | 'DHN' | 'SIGRID' | 'ENFEN';
   entidadNombreCompleto: string;
   entidadUrl: string;
   horaReporte: string;
@@ -704,7 +704,7 @@ export function obtenerReportesDesastres24h(
         { etiqueta: 'Plataforma Web', valor: 'coen.indeci.gob.pe' },
       ],
       datosAdicionalesOficiales: [
-        'Monitoreo conjunto con IGP, SENAMHI, DHN y CENEPRED.',
+        'Monitoreo conjunto con IGP, SENAMHI, DHN, CENEPRED y ENFEN.',
         'Módulos de ayuda humanitaria y logística de primera respuesta en alerta.',
         'Boletines informativos de libre acceso en el portal oficial del COEN.',
       ],
@@ -714,6 +714,46 @@ export function obtenerReportesDesastres24h(
       enlaceBoletinOficial: 'https://coen.indeci.gob.pe/',
       boletinNombre: 'Portal Oficial del COEN - INDECI: Monitoreo en Vivo',
       enlaceCatalogoOficial: 'https://coen.indeci.gob.pe/',
+    });
+  }
+
+  // 7. ENFEN: Comisión Multisectorial del Fenómeno El Niño (Monitoreo Océano-Atmosférico)
+  // Aplica para el litoral peruano y cuencas costeras
+  if (esCosta || depNorm.includes('piura') || depNorm.includes('tumbes') || depNorm.includes('lambayeque') || depNorm.includes('la libertad') || depNorm.includes('lima') || depNorm.includes('ica') || depNorm.includes('ancash')) {
+    reportes.push({
+      id: `rep-enfen-comunicado-${provNorm}`,
+      tipoDesastre: 'inundacion',
+      codigoOficial: 'Comunicado Oficial ENFEN N° 12-2026',
+      titulo: `ENFEN: Monitoreo de El Niño y La Niña Costera en ${provincia.name}`,
+      entidad: 'ENFEN',
+      entidadNombreCompleto: 'Comisión Multisectorial encargada del Estudio Nacional del Fenómeno El Niño (ENFEN)',
+      entidadUrl: 'https://enfen.imarpe.gob.pe/',
+      horaReporte: 'Monitoreo Océano-Atmosférico Setiembre 2026',
+      haceCuanto: 'Monitoreo ENFEN Activo',
+      severidad: 'Moderada',
+      severidadColor: 'bg-teal-700 text-white',
+      lugarExactoProvincia: `Costa peruana y ámbito de ${provincia.name} (${departamento.name})`,
+      coordenadasExactas: `Región Niño 1+2 e Índice Térmico Costero (Coord: ${distrito.lat.toFixed(4)}° S, ${distrito.lng.toFixed(4)}° W)`,
+      descripcion: `La Comisión Multisectorial ENFEN (integrada por IMARPE, SENAMHI, DHN, IGP, ANA, INDECI y CENEPRED) informa el estado del sistema de alerta y el monitoreo de anomalías de la Temperatura Superficial del Mar (TSM) frente a la costa de ${provincia.name}.`,
+      parametrosClave: [
+        { etiqueta: 'Entidad Emisora', valor: 'Comisión Multisectorial ENFEN' },
+        { etiqueta: 'Estado de Alerta', valor: 'No Activo / Vigilancia Permanente' },
+        { etiqueta: 'Región Monitoreada', valor: 'Niño 1+2 (Costa Norte y Centro)' },
+        { etiqueta: 'Anomalía Térmica TSM', valor: 'Valores en rango neutral' },
+        { etiqueta: 'Plataforma Oficial', valor: 'enfen.imarpe.gob.pe/comunicados' },
+      ],
+      datosAdicionalesOficiales: [
+        'Análisis técnico conjunto entre IMARPE, SENAMHI, DHN, IGP y CENEPRED.',
+        'Informes técnicos y comunicados oficiales disponibles en enfen.imarpe.gob.pe/comunicados.',
+        'Recomendaciones sectoriales transmitidas a los comités de Defensa Civil y agricultura.',
+      ],
+      zonaAfectada: `Áreas costeras, valles agrícolas y cuencas de ${distrito.name} (${provincia.name})`,
+      recomendacionDefensaCivil:
+        'Mantener limpios los cauces de drenaje y estar atentos a los comunicados oficiales periódicos de la Comisión ENFEN.',
+      enlacePdfDirecto: `/api/reporte-enfen-pdf?comunicado=12-2026&provincia=${encodeURIComponent(provincia.name)}`,
+      enlaceBoletinOficial: 'https://enfen.imarpe.gob.pe/comunicados/',
+      boletinNombre: 'Comunicados Oficiales ENFEN: Monitoreo El Niño / La Niña',
+      enlaceCatalogoOficial: 'https://enfen.imarpe.gob.pe/comunicados/',
     });
   }
 

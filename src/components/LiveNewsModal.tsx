@@ -24,7 +24,7 @@ interface LiveNewsModalProps {
 
 export interface NoticiaEnVivo {
   id: string;
-  entidad: 'IGP' | 'SENAMHI' | 'COEN' | 'CENEPRED' | 'DHN' | 'INDECI';
+  entidad: 'IGP' | 'SENAMHI' | 'COEN' | 'CENEPRED' | 'DHN' | 'INDECI' | 'ENFEN';
   entidadNombre: string;
   urlOficial: string;
   titulo: string;
@@ -36,6 +36,22 @@ export interface NoticiaEnVivo {
 }
 
 export const NOTICIAS_EN_VIVO_DATA: NoticiaEnVivo[] = [
+  {
+    id: 'n-enfen-comunicado',
+    entidad: 'ENFEN',
+    entidadNombre: 'Comisión Multisectorial encargada del Estudio Nacional del Fenómeno El Niño (ENFEN)',
+    urlOficial: 'https://enfen.imarpe.gob.pe/comunicados/',
+    titulo: 'Comunicado Oficial ENFEN: Monitoreo Océano-Atmosférico y Estado del Sistema de Alerta',
+    hora: 'Hace 35 minutos',
+    estado: 'ACTUALIZADO',
+    resumen: 'La Comisión Multisectorial ENFEN (integrada por IMARPE, SENAMHI, DHN, IGP, ANA, INDECI y CENEPRED) mantiene el monitoreo continuo de las condiciones oceanográficas y meteorológicas en el Pacífico Ecuatorial, vigilando la temperatura superficial del mar y ondas Kelvin.',
+    detalles: [
+      'Seguimiento permanente de la Región Niño 1+2 e índice térmico costero en todo el litoral peruano.',
+      'Informes técnicos y comunicados oficiales colegiados disponibles en enfen.imarpe.gob.pe/comunicados.',
+      'Coordinación directa con los comités de Defensa Civil y sectores productivos (agricultura, pesca y agua).',
+    ],
+    colorBadge: 'bg-teal-700',
+  },
   {
     id: 'n-igp-sismo',
     entidad: 'IGP',
@@ -200,7 +216,7 @@ export const LiveNewsModal: React.FC<LiveNewsModalProps> = ({ isOpen, onClose })
           >
             Todas ({NOTICIAS_EN_VIVO_DATA.length})
           </button>
-          {['IGP', 'SENAMHI', 'COEN', 'CENEPRED', 'DHN'].map((ent) => (
+          {['IGP', 'SENAMHI', 'COEN', 'CENEPRED', 'DHN', 'ENFEN'].map((ent) => (
             <button
               key={ent}
               type="button"

@@ -132,4 +132,13 @@ export const OFFICIAL_PERUVIAN_ENTITIES: OfficialEntity[] = [
     iconName: 'Waves',
     lastReport: 'Monitoreo mareográfico boyas DART litoral peruano: Estado Normal.',
   },
+  {
+    acronym: 'ENFEN',
+    name: 'Comisión Multisectorial del Estudio Nacional del Fenómeno El Niño',
+    role: 'Vigilancia y Pronóstico de El Niño y La Niña Costera',
+    url: 'https://enfen.imarpe.gob.pe/comunicados/',
+    badgeColor: 'bg-teal-700',
+    iconName: 'ThermometerSun',
+    lastReport: 'Comunicado Oficial ENFEN: Monitoreo océano-atmosférico continuo de la Región Niño 1+2 e índice térmico costero.',
+  },
 ];

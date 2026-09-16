@@ -130,7 +130,11 @@ export default function App() {
     setSelectedDist(dist);
 
     // If active disaster is not relevant to this district, switch to primary
-    if (!dist?.predominantDisasters?.includes(activeDisaster)) {
+    const normActive = activeDisaster.toLowerCase();
+    const hasDisaster = dist?.predominantDisasters?.some(
+      (d) => d.toLowerCase() === normActive
+    );
+    if (!hasDisaster) {
       const newDisaster = dist?.predominantDisasters?.[0] || 'sismo';
       setActiveDisaster(newDisaster);
     }

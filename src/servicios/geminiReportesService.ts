@@ -25,6 +25,7 @@ import { DepartmentData, DistrictData, DisasterType, ProvinceData } from '../typ
 import {
   AlertaOficialCruda,
   CriteriosUbicacion,
+  construirInformacionCompletaOficial,
   extraerAlertas7Instituciones,
 } from './oficialesExtractionService';
 
@@ -38,7 +39,7 @@ export interface ReporteOficialGemini {
   tipoDesastre: DisasterType;
   codigoOficial: string;
   titulo: string;
-  entidad: 'IGP' | 'SENAMHI' | 'COEN' | 'INDECI' | 'CENEPRED' | 'SIGRID' | 'DHN';
+  entidad: 'IGP' | 'SENAMHI' | 'COEN' | 'INDECI' | 'CENEPRED' | 'SIGRID' | 'DHN' | 'ENFEN';
   entidadNombreCompleto: string;
   entidadUrl: string;
   enlace_oficial: string; // Enlace directo obligatorio
@@ -59,6 +60,9 @@ export interface ReporteOficialGemini {
   recomendacionDefensaCivil: string;
   boletinNombre: string;
   esSismoReal?: boolean;
+  tipoBoletinOficial?: string;
+  informacionCompletaOficial?: string;
+  periodoVigenciaTexto?: string;
 }
 
 export interface ConsultaReportesPayload {
@@ -82,6 +86,7 @@ Tu única función es estructurar y validar el JSON final para las tarjetas de l
 3. INDECI y COEN: https://coen.indeci.gob.pe/report/
 4. CENEPRED y SIGRID: https://sigrid.cenepred.gob.pe/sigridv3/documento/17791
 5. DHN: https://www.dhn.mil.pe/portal/avisos-especiales
+6. ENFEN: https://enfen.imarpe.gob.pe/comunicados/
 
 REGLAS OBLIGATORIAS:
 - FILTRO ESTRICTO DE 24 HORAS: Ninguna alerta puede superar las 24 horas de antigüedad respecto a la hora actual.
@@ -123,7 +128,7 @@ export function formatearAlertasCrudas(
       enlaceBoletinOficial: alerta.enlace_oficial,
       enlacePdfDirecto: alerta.enlacePdfDirecto,
       enlaceCatalogoOficial: alerta.enlaceVisorPlataforma || alerta.urlInstitucion,
-      horaReporte: `${alerta.fechaLocalPerú} - ${alerta.horaLocalPerú} (Hora Local Perú)`,
+      horaReporte: `${alerta.fechaLocalPerú} - ${alerta.horaLocalPerú}`,
       fechaHoraRegistroIso: new Date(alerta.timestampPublicacionMs).toISOString(),
       haceCuanto: alerta.tiempoTranscurrido,
       severidad: alerta.severidad,
@@ -137,6 +142,9 @@ export function formatearAlertasCrudas(
       recomendacionDefensaCivil: alerta.medidaDefensaCivil,
       boletinNombre: `${alerta.institucion} ${alerta.codigoOficial}`,
       esSismoReal: alerta.institucion === 'IGP',
+      tipoBoletinOficial: alerta.tipoBoletinOficial || `Boletín / Alerta Informativa (${alerta.institucion})`,
+      informacionCompletaOficial: construirInformacionCompletaOficial(alerta),
+      periodoVigenciaTexto: alerta.periodoVigenciaTexto,
     };
   });
 }

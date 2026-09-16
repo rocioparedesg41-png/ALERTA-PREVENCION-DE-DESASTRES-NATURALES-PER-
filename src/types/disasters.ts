@@ -8,7 +8,19 @@ export type DisasterType =
   | 'helada_friaje'
   | 'sequia'
   | 'erupcion_volcanica'
-  | 'deslizamiento';
+  | 'deslizamiento'
+  | 'huayco_deslizamiento'
+  | 'viento_fuerte'
+  | 'granizada'
+  | 'SISMO'
+  | 'TSUNAMI'
+  | 'ERUPCION_VOLCANICA'
+  | 'HUAYCO_DESLIZAMIENTO'
+  | 'INUNDACION'
+  | 'HELADA_FRIAJE'
+  | 'SEQUIA'
+  | 'VIENTO_FUERTE'
+  | 'GRANIZADA';
 
 export interface DisasterInfo {
   type: DisasterType;

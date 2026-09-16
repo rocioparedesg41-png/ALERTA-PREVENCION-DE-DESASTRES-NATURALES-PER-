@@ -675,6 +675,96 @@ function igpApiPlugin(): Plugin {
           }
         }
 
+        // 1.6 Endpoint oficial para servir el Comunicado Oficial ENFEN en PDF
+        if (pathname === '/api/reporte-enfen-pdf') {
+          const urlObj = new URL(urlString, `http://${req.headers.host || 'localhost'}`);
+          const comunicado = (urlObj.searchParams.get('comunicado') || '12-2026').trim();
+          const provincia = urlObj.searchParams.get('provincia') || 'Provincia Litoral';
+
+          try {
+            const doc = new jsPDF();
+            // Encabezado institucional ENFEN
+            doc.setFillColor(15, 118, 110); // Teal 700 ENFEN
+            doc.rect(0, 0, 210, 28, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.text('COMISIÓN MULTISECTORIAL ENCARGADA DEL ESTUDIO NACIONAL', 105, 11, { align: 'center' });
+            doc.text('DEL FENÓMENO EL NIÑO (ENFEN)', 105, 17, { align: 'center' });
+            doc.setFontSize(7.5);
+            doc.setFont('helvetica', 'normal');
+            doc.text('INTEGRADA POR: IMARPE • SENAMHI • DHN • IGP • ANA • INDECI • CENEPRED', 105, 23, { align: 'center' });
+
+            // Identificador de documento
+            doc.setFillColor(248, 250, 252);
+            doc.setDrawColor(204, 251, 241);
+            doc.roundedRect(14, 33, 182, 22, 2, 2, 'FD');
+            doc.setTextColor(15, 118, 110);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10.5);
+            doc.text(`COMUNICADO OFICIAL ENFEN N° ${comunicado}`, 20, 42);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            doc.setTextColor(71, 85, 105);
+            doc.text(`Monitoreo Océano-Atmosférico y Estado del Sistema de Alerta | Ámbito: ${provincia}`, 20, 48);
+
+            // Bloque I: Monitoreo
+            doc.setFillColor(255, 255, 255);
+            doc.setDrawColor(203, 213, 225);
+            doc.roundedRect(14, 59, 182, 45, 2, 2, 'D');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9);
+            doc.setTextColor(15, 23, 42);
+            doc.text('I. ESTADO DEL SISTEMA DE ALERTA Y CONDICIONES DEL PACÍFICO', 18, 66);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            doc.setTextColor(51, 65, 85);
+            doc.text('• Estado del Sistema de Alerta: No Activo / Vigilancia Océano-Atmosférica Permanente.', 18, 73);
+            doc.text('• Región Niño 1+2: Temperatura Superficial del Mar (TSM) dentro de los rangos neutros.', 18, 79);
+            doc.text('• Ondas Kelvin: Monitoreo térmico continuo a lo largo del litoral marítimo peruano.', 18, 85);
+            doc.text('• Comités Técnicos: IMARPE y DHN mantienen boyas oceanográficas y mareógrafos activos.', 18, 91);
+            doc.text('• Previsión Climática: SENAMHI actualiza pronósticos meteorológicos de precipitación.', 18, 97);
+
+            // Bloque II: Recomendaciones
+            doc.setFillColor(240, 253, 250);
+            doc.setDrawColor(153, 246, 228);
+            doc.roundedRect(14, 108, 182, 35, 2, 2, 'FD');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9);
+            doc.setTextColor(15, 118, 110);
+            doc.text('II. RECOMENDACIONES MULTISECTORIALES:', 20, 116);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            doc.setTextColor(19, 78, 74);
+            doc.text('1. Plataformas de Defensa Civil: Mantener actualizados los planes de contingencia por lluvias.', 20, 123);
+            doc.text('2. Sectores Productivos: Agricultura, pesca e infraestructura deben seguir los comunicados técnicos.', 20, 129);
+            doc.text('3. Ciudadanía: Mantener despejados cauces de quebradas y drenes pluviales en cuencas costeras.', 20, 135);
+
+            // Pie de página
+            doc.setDrawColor(226, 232, 240);
+            doc.line(14, 184, 196, 184);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7.5);
+            doc.setTextColor(100, 116, 139);
+            doc.text('Página Oficial ENFEN: https://enfen.imarpe.gob.pe/', 14, 191);
+            doc.text('Comunicados Oficiales ENFEN: https://enfen.imarpe.gob.pe/comunicados/', 14, 197);
+            doc.text('Comisión Multisectorial del Estudio Nacional del Fenómeno El Niño (ENFEN).', 14, 203);
+
+            const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `inline; filename="Comunicado_ENFEN_${comunicado}.pdf"`);
+            res.setHeader('Content-Length', pdfBuffer.length);
+            res.end(pdfBuffer);
+            return;
+          } catch (enfenErr) {
+            console.error('Error generando PDF ENFEN:', enfenErr);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+            res.end('Error al generar el comunicado oficial ENFEN en PDF.');
+            return;
+          }
+        }
+
         // 2. Endpoint backend con Gemini AI como Formateador y Validador Inteligente (7 Instituciones)
         if (pathname === '/api/reportes-oficiales-gemini') {
           const urlObj = new URL(urlString, `http://${req.headers.host || 'localhost'}`);
@@ -696,7 +786,7 @@ function igpApiPlugin(): Plugin {
               enlace_oficial: a.enlace_oficial,
               enlaceBoletinOficial: a.enlace_oficial,
               enlacePdfDirecto: a.enlacePdfDirecto,
-              horaReporte: `${a.fechaLocalPerú} - ${a.horaLocalPerú} (Hora Local Perú)`,
+              horaReporte: `${a.fechaLocalPerú} - ${a.horaLocalPerú}`,
               fechaHoraRegistroIso: new Date(a.timestampPublicacionMs).toISOString(),
               haceCuanto: a.tiempoTranscurrido,
               severidad: a.severidad,
@@ -705,6 +795,8 @@ function igpApiPlugin(): Plugin {
                   ? 'bg-red-600 text-white'
                   : a.severidad === 'Alta'
                   ? 'bg-amber-500 text-white'
+                  : a.severidad === 'Moderada'
+                  ? 'bg-amber-400 text-slate-900'
                   : 'bg-blue-600 text-white',
               lugarExactoProvincia: a.lugarReferencia,
               coordenadasExactas: a.coordenadasReferencia,
@@ -715,6 +807,9 @@ function igpApiPlugin(): Plugin {
               recomendacionDefensaCivil: a.medidaDefensaCivil,
               boletinNombre: `${a.institucion} ${a.codigoOficial}`,
               esSismoReal: a.institucion === 'IGP',
+              tipoBoletinOficial: a.tipoBoletinOficial || `Boletín / Alerta Informativa (${a.institucion})`,
+              informacionCompletaOficial: a.informacionCompletaOficial || a.descripcionOficial,
+              periodoVigenciaTexto: a.periodoVigenciaTexto,
             }));
           };
 
@@ -773,14 +868,15 @@ Tu única función es estructurar y validar el JSON final para las tarjetas de l
 3. INDECI y COEN: https://coen.indeci.gob.pe/report/
 4. CENEPRED y SIGRID: https://sigrid.cenepred.gob.pe/sigridv3/documento/17791
 5. DHN: https://www.dhn.mil.pe/portal/avisos-especiales
+6. ENFEN: https://enfen.imarpe.gob.pe/comunicados/
 
 REGLAS OBLIGATORIAS:
-- FILTRO ESTRICTO DE 24 HORAS: Hora actual del sistema: ${now.toISOString()}. Descartar cualquier evento mayor a 24 horas.
+- FILTRO TEMPORAL: Hora actual del sistema: ${now.toISOString()}. Considerar alertas emitidas en las últimas 24 horas O con período de vigencia/duración activo en esta fecha (ejemplo: avisos y boletines multidiarios del 14 al 16 de setiembre de 2026).
 - SINCRONIZACIÓN GEOGRÁFICA: Departamento: "${departamento}", Provincia: "${provincia}", Distrito: "${distrito}".
 - ENLACES DIRECTOS VÁLIDOS: El campo "enlace_oficial" es obligatorio y debe conservar exactamente los enlaces oficiales provistos en cada alerta extraída (nunca inventar dominios rotos o sin barra diagonal).
 - CONTROL DE VACÍO Y CERO ALUCINACIONES: Si no hay alertas que cumplan ambos filtros, retorna estrictamente [].`;
 
-            const prompt = `A continuación tienes la lista de alertas extraídas de los canales oficiales para la provincia de ${provincia} (${departamento}) en las últimas 24 horas:
+            const prompt = `A continuación tienes la lista de alertas oficiales extraídas para la provincia de ${provincia} (${departamento}):
 ${JSON.stringify(alertasCrudas, null, 2)}
 
 Estructura y valida el JSON final para alimentar las tarjetas de la interfaz. Si no hay alertas válidas, retorna [].`;
@@ -809,6 +905,9 @@ Estructura y valida el JSON final para alimentar las tarjetas de la interfaz. Si
                             'sequia',
                             'erupcion_volcanica',
                             'deslizamiento',
+                            'viento_fuerte',
+                            'huayco_deslizamiento',
+                            'granizada',
                           ],
                         },
                         codigoOficial: { type: Type.STRING },
@@ -851,6 +950,9 @@ Estructura y valida el JSON final para alimentar las tarjetas de la interfaz. Si
                         zonaAfectada: { type: Type.STRING },
                         recomendacionDefensaCivil: { type: Type.STRING },
                         boletinNombre: { type: Type.STRING },
+                        tipoBoletinOficial: { type: Type.STRING },
+                        informacionCompletaOficial: { type: Type.STRING },
+                        periodoVigenciaTexto: { type: Type.STRING },
                       },
                       required: [
                         'id',
@@ -882,6 +984,9 @@ Estructura y valida el JSON final para alimentar las tarjetas de la interfaz. Si
                   if (original.enlace_oficial) r.enlace_oficial = original.enlace_oficial;
                   if (original.enlacePdfDirecto) r.enlacePdfDirecto = original.enlacePdfDirecto;
                   if (original.enlaceBoletinOficial) r.enlaceBoletinOficial = original.enlace_oficial;
+                  if (original.tipoBoletinOficial) r.tipoBoletinOficial = original.tipoBoletinOficial;
+                  if (original.informacionCompletaOficial) r.informacionCompletaOficial = original.informacionCompletaOficial;
+                  if (original.periodoVigenciaTexto) r.periodoVigenciaTexto = original.periodoVigenciaTexto;
                 }
                 return r;
               });

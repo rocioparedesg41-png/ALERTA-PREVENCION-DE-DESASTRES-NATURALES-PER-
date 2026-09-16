@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { PhoneCall, ExternalLink, ShieldCheck, X, Activity, Radio, Waves, Compass, CloudRain, Map } from 'lucide-react';
+import { PhoneCall, ExternalLink, ShieldCheck, X, Activity, Radio, Waves, Compass, CloudRain, Map, ThermometerSun } from 'lucide-react';
 import { PERU_EMERGENCY_PHONES, OFFICIAL_PERUVIAN_ENTITIES } from '../data/officialEntities';
 
 interface OfficialEntitiesModalProps {
@@ -28,6 +28,8 @@ export const OfficialEntitiesModal: React.FC<OfficialEntitiesModalProps> = ({
         return <Map className="w-5 h-5" />;
       case 'Radio':
         return <Radio className="w-5 h-5" />;
+      case 'ThermometerSun':
+        return <ThermometerSun className="w-5 h-5" />;
       default:
         return <ShieldCheck className="w-5 h-5" />;
     }

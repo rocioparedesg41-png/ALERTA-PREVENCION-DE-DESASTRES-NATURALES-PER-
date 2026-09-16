@@ -1,8 +1,21 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { AlertOctagon, ShieldAlert, Waves, Mountain, CloudRain, Snowflake, SunMedium, Flame, ChevronRight, FileImage } from 'lucide-react';
+import {
+  AlertOctagon,
+  ShieldAlert,
+  Waves,
+  Mountain,
+  CloudRain,
+  Snowflake,
+  SunMedium,
+  Flame,
+  ChevronRight,
+  FileImage,
+  Wind,
+  CloudHail,
+} from 'lucide-react';
 import { DisasterType, DistrictData } from '../types/disasters';
-import { DISASTER_PROTOCOLS } from '../data/peruData';
+import { DISASTER_PROTOCOLS, getDisasterProtocol } from '../data/peruData';
 
 interface DisasterRiskCardProps {
   district: DistrictData;
@@ -17,13 +30,16 @@ export const DisasterRiskCard: React.FC<DisasterRiskCardProps> = ({
   onSelectDisaster,
   onViewInfographic,
 }) => {
-  const getDisasterIcon = (type: DisasterType) => {
-    switch (type) {
+  const getDisasterIcon = (type: DisasterType | string) => {
+    const key = String(type).toLowerCase();
+    switch (key) {
       case 'sismo':
         return <ActivityIcon className="w-4 h-4" />;
       case 'tsunami':
         return <Waves className="w-4 h-4" />;
       case 'huayco':
+      case 'deslizamiento':
+      case 'huayco_deslizamiento':
         return <Mountain className="w-4 h-4" />;
       case 'inundacion':
         return <CloudRain className="w-4 h-4" />;
@@ -33,12 +49,16 @@ export const DisasterRiskCard: React.FC<DisasterRiskCardProps> = ({
         return <SunMedium className="w-4 h-4" />;
       case 'erupcion_volcanica':
         return <Flame className="w-4 h-4" />;
+      case 'viento_fuerte':
+        return <Wind className="w-4 h-4" />;
+      case 'granizada':
+        return <CloudHail className="w-4 h-4" />;
       default:
         return <ShieldAlert className="w-4 h-4" />;
     }
   };
 
-  const currentProtocol = DISASTER_PROTOCOLS[activeDisaster] || DISASTER_PROTOCOLS.sismo;
+  const currentProtocol = getDisasterProtocol(activeDisaster);
   // Garantizar que el desastre activo siempre esté visible entre las opciones
   const availableDisasters = Array.from(new Set([...district.predominantDisasters, activeDisaster]));
 
@@ -87,8 +107,8 @@ export const DisasterRiskCard: React.FC<DisasterRiskCardProps> = ({
         </div>
         <div className="flex flex-wrap gap-2">
           {availableDisasters.map((dtype) => {
-            const proto = DISASTER_PROTOCOLS[dtype] || DISASTER_PROTOCOLS.sismo;
-            const isSelected = activeDisaster === dtype;
+            const proto = getDisasterProtocol(dtype);
+            const isSelected = activeDisaster.toLowerCase() === dtype.toLowerCase();
             return (
               <motion.button
                 key={dtype}

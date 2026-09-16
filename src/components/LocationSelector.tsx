@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { MapPin, Navigation, Search, Check, AlertCircle, Compass, Thermometer } from 'lucide-react';
+import { MapPin, Navigation, Search, Check, AlertCircle, Compass, Thermometer, X } from 'lucide-react';
 import { DepartmentData, DistrictData, ProvinceData } from '../types/disasters';
 import { PERU_DEPARTMENTS, searchLocations } from '../data/peruData';
+import { DISASTER_COLORS, DISASTER_LABELS, DisasterType as EngineDisasterType } from '../data/disasterTypes';
 import { obtenerUbicacionActual } from '../servicios/ubicacion';
 
 interface LocationSelectorProps {
@@ -176,9 +177,23 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
             value={searchQuery}
             onChange={(e) => handleSearchInput(e.target.value)}
             placeholder="Buscar cualquier departamento, provincia o distrito (ej. Chosica, Callao, Ubinas, Puno, Belén...)"
-            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-red-500 focus:bg-white rounded-lg text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-red-500/20 transition-colors font-sans"
+            className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 focus:border-slate-400 focus:bg-white rounded-lg text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-100 transition-all font-sans"
           />
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                setSearchResults([]);
+                setIsSearching(false);
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200/60 transition-colors cursor-pointer"
+              title="Limpiar búsqueda"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Live Search Autocomplete Results */}
@@ -207,6 +222,13 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
                 </span>
               </button>
             ))}
+          </div>
+        )}
+
+        {/* Friendly empty state if nothing found */}
+        {isSearching && searchResults.length === 0 && (
+          <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-30 p-3.5 text-center text-xs text-slate-500">
+            No se encontraron coincidencias para &quot;{searchQuery}&quot;. Puede seleccionar departamento, provincia y distrito en las listas desplegables.
           </div>
         )}
       </div>
@@ -271,15 +293,20 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
       {/* Hazards Detected for Selected District */}
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <span className="text-xs font-bold text-slate-700">Desastres identificados en esta zona:</span>
-        {selectedDist.predominantDisasters.map((hazard) => (
-          <span
-            key={hazard}
-            className="px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-red-50 text-red-700 border border-red-200 flex items-center gap-1.5"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
-            {hazard.replace('_', ' ')}
-          </span>
-        ))}
+        {selectedDist.predominantDisasters.map((hazard) => {
+          const keyUpper = hazard.toUpperCase() as EngineDisasterType;
+          const style = DISASTER_COLORS[keyUpper] || { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-600' };
+          const label = DISASTER_LABELS[keyUpper] || hazard.replace(/_/g, ' ');
+          return (
+            <span
+              key={hazard}
+              className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${style.bg} ${style.text} border border-slate-200/70 flex items-center gap-1.5 shadow-2xs`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
+              {label}
+            </span>
+          );
+        })}
       </div>
 
       {/* Climate details tag line */}

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 import { CheckSquare, Square, Backpack, Award, RotateCcw, Sparkles, Filter, CheckCircle2 } from 'lucide-react';
 import { DisasterType } from '../types/disasters';
-import { DISASTER_PROTOCOLS } from '../data/peruData';
+import { DISASTER_PROTOCOLS, getDisasterProtocol } from '../data/peruData';
 
 interface ChecklistOkProps {
   activeDisaster: DisasterType;
@@ -11,7 +11,7 @@ interface ChecklistOkProps {
 }
 
 export const ChecklistOk: React.FC<ChecklistOkProps> = ({ activeDisaster, districtName }) => {
-  const currentItems = DISASTER_PROTOCOLS[activeDisaster]?.backpackItems || DISASTER_PROTOCOLS.sismo.backpackItems;
+  const currentItems = getDisasterProtocol(activeDisaster).backpackItems;
 
   // Track checked items by id
   const storageKey = `checklist_peru_${activeDisaster}`;

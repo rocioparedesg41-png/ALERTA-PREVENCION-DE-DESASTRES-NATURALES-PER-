@@ -1,7 +1,8 @@
 import { DepartmentData, DisasterInfo, DisasterType, ProvinceData, DistrictData } from '../types/disasters';
 import completeDepartmentsJson from './peruDepartmentsComplete.json';
+import { getDisasterTypesForDistrict } from './disasterTypes';
 
-export const DISASTER_PROTOCOLS: Record<DisasterType, DisasterInfo> = {
+export const DISASTER_PROTOCOLS: Record<string, DisasterInfo> = {
   sismo: {
     type: 'sismo',
     title: 'Sismo y Terremoto',
@@ -79,6 +80,31 @@ export const DISASTER_PROTOCOLS: Record<DisasterType, DisasterInfo> = {
       { id: 'h_linterna', label: 'Linterna frontal de cabeza (manos libres)', category: 'esencial', required: true },
       { id: 'h_botiquin', label: 'Botiquín con vendas elásticas, gasas y antiséptico', category: 'medico', required: true },
       { id: 'h_silbato', label: 'Silbato de socorro montañero', category: 'esencial', required: true },
+    ],
+  },
+  huayco_deslizamiento: {
+    type: 'huayco_deslizamiento',
+    title: 'Huaico y Deslizamiento de Masa',
+    riskLevel: 'Alto',
+    infographicFile: '/evacuacion_huayco_.png',
+    description: 'Flujo violento de agua, lodo, detritos y desprendimiento de laderas inestables por lluvias torrenciales y laderas empinadas.',
+    primaryCause: 'Lluvias estacionales torrenciales en cuencas medias y altas de los Andes y gradiente topográfica',
+    warningTime: '5 a 15 minutos tras rugido, tremor o alerta temprana comunitaria',
+    recommendedActions: [
+      'Nunca correr ladera abajo en la dirección del cauce del aluvión o quebrada.',
+      'Evacuar perpendicularmente hacia laderas altas y terreno rocoso consolidado.',
+      'Alejarse inmediatamente de cauces secos, riberas y puentes vehiculares o peatonales.',
+      'No intentar cruzar la masa de lodo ni a pie ni en vehículos particulares.',
+      'Reunirse en el punto de encuentro elevado coordinado por INDECI y Defensa Civil.',
+    ],
+    backpackItems: [
+      { id: 'hd_botas', label: 'Botas de jebe o calzado de caña alta con tracción', category: 'especifico', required: true },
+      { id: 'hd_casco', label: 'Casco de protección contra caída de piedras y rocas', category: 'especifico', required: true },
+      { id: 'hd_impermeable', label: 'Poncho o casaca impermeable de alta visibilidad', category: 'especifico', required: true },
+      { id: 'hd_agua', label: 'Pastillas purificadoras y agua potable sellada', category: 'esencial', required: true },
+      { id: 'hd_linterna', label: 'Linterna frontal de cabeza (manos libres)', category: 'esencial', required: true },
+      { id: 'hd_botiquin', label: 'Botiquín con gasas estériles, vendas y desinfectante', category: 'medico', required: true },
+      { id: 'hd_silbato', label: 'Silbato de socorro de alta frecuencia', category: 'esencial', required: true },
     ],
   },
   inundacion: {
@@ -192,14 +218,134 @@ export const DISASTER_PROTOCOLS: Record<DisasterType, DisasterInfo> = {
       { id: 'd_cuerda', label: 'Cuerda y arnés o cinta de sujeción', category: 'especifico', required: false },
     ],
   },
+  viento_fuerte: {
+    type: 'viento_fuerte',
+    title: 'Vientos Fuertes / Paracas',
+    riskLevel: 'Alto',
+    infographicFile: '/evacuacion_heladas_friajes.jpg',
+    description: 'Ráfagas intensas de viento (más de 40 km/h) con levantamiento de polvo y arena, afectando techos ligeros y visibilidad.',
+    primaryCause: 'Gradientes de presión atmosférica entre el anticiclón del Pacífico Sur y cordillera andina (SENAMHI)',
+    warningTime: 'Horas a 2 días según aviso meteorológico SENAMHI',
+    recommendedActions: [
+      'Asegurar y fijar techos de calamina, cartón o madera con pernos o sacos de arena.',
+      'Alejarse de árboles altos, postes eléctricos, letreros y cables de alta tensión.',
+      'Cerrar y asegurar puertas y ventanas, protegiendo vidrios con cinta adhesiva.',
+      'Suspender actividades al aire libre y deportes en zonas expuestas durante la alerta.',
+    ],
+    backpackItems: [
+      { id: 'vf_gafas', label: 'Gafas de seguridad herméticas antipolvo / arena', category: 'especifico', required: true },
+      { id: 'vf_mascarilla', label: 'Mascarilla KN95 contra partículas suspendidas', category: 'esencial', required: true },
+      { id: 'vf_linterna', label: 'Linterna recargable con batería de repuesto', category: 'esencial', required: true },
+      { id: 'vf_cuerda', label: 'Cuerda de amarre y cinta aislante gruesa', category: 'especifico', required: true },
+    ],
+  },
+  granizada: {
+    type: 'granizada',
+    title: 'Granizada y Tormentas Eléctricas',
+    riskLevel: 'Alto',
+    infographicFile: '/evacuacion_heladas_friajes.jpg',
+    description: 'Precipitación de trozos compactos de hielo acompañada de descargas eléctricas en valles y quebradas andinas.',
+    primaryCause: 'Nubes cumulonimbus de gran desarrollo vertical en la Sierra central y sur',
+    warningTime: 'Minutos a pocas horas según radar y avisos de corto plazo SENAMHI',
+    recommendedActions: [
+      'Refugiarse inmediatamente en construcciones sólidas con techo resistente.',
+      'Evitar refugiarse debajo de árboles aislados o estructuras metálicas altas.',
+      'Limpiar canaletas y desagües de techos para prevenir acumulación y colapso por peso.',
+      'Desconectar artefactos eléctricos para evitar daños por sobretensión de rayos.',
+    ],
+    backpackItems: [
+      { id: 'gr_casco', label: 'Casco o gorro grueso de protección craneal', category: 'especifico', required: true },
+      { id: 'gr_impermeable', label: 'Poncho impermeable térmico para lluvia y granizo', category: 'esencial', required: true },
+      { id: 'gr_botas', label: 'Botas de jebe antideslizantes', category: 'esencial', required: true },
+      { id: 'gr_linterna', label: 'Linterna frontal manos libres', category: 'especifico', required: true },
+    ],
+  },
 };
 
-// Official political division of Peru: 24 Departments, 196 Provinces (including Callao as province under Lima), and 1,893 Districts
-export const PERU_DEPARTMENTS: DepartmentData[] = completeDepartmentsJson as unknown as DepartmentData[];
+// Aliases para soportar mayúsculas y variantes en DISASTER_PROTOCOLS
+Object.keys(DISASTER_PROTOCOLS).forEach((key) => {
+  const upper = key.toUpperCase();
+  if (!DISASTER_PROTOCOLS[upper]) {
+    DISASTER_PROTOCOLS[upper] = { ...DISASTER_PROTOCOLS[key] };
+  }
+});
+DISASTER_PROTOCOLS['HUAYCO_DESLIZAMIENTO'] = DISASTER_PROTOCOLS['huayco_deslizamiento'];
+DISASTER_PROTOCOLS['VIENTO_FUERTE'] = DISASTER_PROTOCOLS['viento_fuerte'];
+DISASTER_PROTOCOLS['GRANIZADA'] = DISASTER_PROTOCOLS['granizada'];
+DISASTER_PROTOCOLS['HELADA_FRIAJE'] = DISASTER_PROTOCOLS['helada_friaje'];
+DISASTER_PROTOCOLS['ERUPCION_VOLCANICA'] = DISASTER_PROTOCOLS['erupcion_volcanica'];
+
+// Helper seguro para obtener el protocolo de cualquier desastre en minúsculas o mayúsculas
+export function getDisasterProtocol(type?: string | DisasterType): DisasterInfo {
+  if (!type) return DISASTER_PROTOCOLS.sismo;
+  const keyLower = String(type).toLowerCase().trim();
+  if (DISASTER_PROTOCOLS[keyLower]) return DISASTER_PROTOCOLS[keyLower];
+  if (DISASTER_PROTOCOLS[String(type)]) return DISASTER_PROTOCOLS[String(type)];
+  if (keyLower.includes('huayco') || keyLower.includes('deslizamiento')) {
+    return DISASTER_PROTOCOLS.huayco_deslizamiento || DISASTER_PROTOCOLS.huayco;
+  }
+  if (keyLower.includes('volcan')) return DISASTER_PROTOCOLS.erupcion_volcanica;
+  if (keyLower.includes('viento')) return DISASTER_PROTOCOLS.viento_fuerte;
+  if (keyLower.includes('graniz')) return DISASTER_PROTOCOLS.granizada;
+  if (keyLower.includes('frio') || keyLower.includes('helada') || keyLower.includes('friaje')) {
+    return DISASTER_PROTOCOLS.helada_friaje;
+  }
+  return DISASTER_PROTOCOLS.sismo;
+}
+
+// División oficial de Perú con evaluación multirriesgo INDECI por distrito
+export const PERU_DEPARTMENTS: DepartmentData[] = (completeDepartmentsJson as unknown as DepartmentData[]).map((dept) => ({
+  ...dept,
+  provinces: dept.provinces.map((prov) => ({
+    ...prov,
+    districts: prov.districts.map((dist) => {
+      // Normalizar nombre de distrito con nombres populares / duales
+      const formattedName =
+        dist.name === 'Lurigancho' || dist.name === 'Lurigancho-Chosica'
+          ? 'Lurigancho (Chosica)'
+          : dist.name;
+
+      // Identificar todos los tipos de desastres de acuerdo al departamento, provincia y distrito
+      const identifiedDisasters = getDisasterTypesForDistrict({
+        districtName: formattedName,
+        provinceName: prov.name,
+        departmentName: dept.name,
+        region: dist.region || dept.region,
+        altitudeMeters: dist.altitudeMeters || 0,
+      });
+
+      return {
+        ...dist,
+        name: formattedName,
+        // Convertimos a minúsculas para compatibilidad estándar con el resto de componentes y tipos
+        predominantDisasters: identifiedDisasters.map((d) => d.toLowerCase() as DisasterType),
+      };
+    }),
+  })),
+}));
+
+// Normalizador de texto para búsqueda (remueve tildes, diacríticos y espacios sobrantes)
+const normalizeSearchText = (text: string) =>
+  (text || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
+// Aliases populares de ciudades / distritos para búsqueda rápida
+const POPULAR_ALIASES: Record<string, string[]> = {
+  chosica: ['lurigancho', 'chosica', 'lurigancho (chosica)'],
+  lurigancho: ['chosica', 'lurigancho (chosica)'],
+  chimbote: ['santa', 'chimbote'],
+  pucallpa: ['calleria', 'coronel portillo', 'pucallpa'],
+  tarapoto: ['san martin', 'tarapoto'],
+  huacho: ['huaura', 'huacho'],
+  cuzco: ['cusco'],
+};
 
 // Helper to quickly search districts, provinces, and departments
 export function searchLocations(query: string) {
-  const q = query.toLowerCase().trim();
+  const q = normalizeSearchText(query);
   if (!q) return [];
   const results: {
     department: DepartmentData;
@@ -208,21 +354,48 @@ export function searchLocations(query: string) {
   }[] = [];
 
   for (const dept of PERU_DEPARTMENTS) {
+    const normDept = normalizeSearchText(dept.name);
     for (const prov of dept.provinces) {
+      const normProv = normalizeSearchText(prov.name);
       for (const dist of prov.districts) {
+        const normDist = normalizeSearchText(dist.name);
+        const normClimate = normalizeSearchText(dist.climateType || '');
+
+        // Verificar coincidencia por alias
+        let matchesAlias = false;
+        for (const [aliasKey, aliasTargets] of Object.entries(POPULAR_ALIASES)) {
+          if (q.includes(aliasKey) || aliasKey.includes(q)) {
+            if (aliasTargets.some((target) => normDist.includes(target) || normProv.includes(target))) {
+              matchesAlias = true;
+              break;
+            }
+          }
+        }
+
         if (
-          dist.name.toLowerCase().includes(q) ||
-          prov.name.toLowerCase().includes(q) ||
-          dept.name.toLowerCase().includes(q) ||
-          dist.climateType.toLowerCase().includes(q) ||
-          dist.predominantDisasters.some(d => d.includes(q))
+          normDist.includes(q) ||
+          normProv.includes(q) ||
+          normDept.includes(q) ||
+          normClimate.includes(q) ||
+          matchesAlias ||
+          dist.predominantDisasters.some((d) => normalizeSearchText(d).includes(q))
         ) {
           results.push({ department: dept, province: prov, district: dist });
         }
       }
     }
   }
-  return results;
+
+  // Priorizar resultados donde el nombre del distrito coincide exactamente o empieza con la consulta
+  return results.sort((a, b) => {
+    const aNorm = normalizeSearchText(a.district.name);
+    const bNorm = normalizeSearchText(b.district.name);
+    const aStarts = aNorm.startsWith(q) || (q.includes('chosic') && aNorm.includes('chosica'));
+    const bStarts = bNorm.startsWith(q) || (q.includes('chosic') && bNorm.includes('chosica'));
+    if (aStarts && !bStarts) return -1;
+    if (!aStarts && bStarts) return 1;
+    return 0;
+  });
 }
 
 /**
