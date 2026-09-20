@@ -3,18 +3,8 @@
  * Servicio de Alarma Sonora de Emergencia (TypeScript Puro)
  * Archivo: src/servicios/alarma.ts
  * 
- * GUÍA DE IMPORTACIÓN Y USO:
- * Importa este módulo en cualquier componente o servicio que requiera emitir una alarma
- * audible persistente (por ejemplo en src/components/AlarmBanner.tsx, src/App.tsx o
- * tras recibir una notificación push desde el Service Worker):
- * 
- * import { reproducirAlarma, detenerAlarma, estaAlarmaSonando } from './servicios/alarma';
- * 
- * // Para iniciar la alarma en bucle infinito ante un sismo o desastre:
- * await reproducirAlarma();
- * 
- * // Para silenciar la alarma y reiniciar a segundo cero:
- * detenerAlarma();
+ * Gestiona la reproducción del archivo de audio de emergencia oficial
+ * (/alarma_sismo.mp3 o /alarma.mp3) en bucle infinito (loop = true).
  * ============================================================================
  */
 
@@ -25,22 +15,30 @@ export interface EstadoAlarma {
   errorAutoplay: boolean;
 }
 
-// Instancia singleton única del elemento de audio HTML
 let audioInstancia: HTMLAudioElement | null = null;
 let errorAutoplayDetectado: boolean = false;
 
 /**
- * Obtiene o inicializa perezosamente la instancia del elemento HTMLAudioElement.
- * Apunta de manera predeterminada al archivo estático '/alarma.mp3' ubicado en la carpeta public.
+ * Obtiene o inicializa la instancia del elemento HTMLAudioElement.
+ * Prioriza '/alarma_sismo.mp3' y '/alarma.mp3' guardados en la carpeta /public.
  */
-function obtenerInstanciaAudio(): HTMLAudioElement {
+export function obtenerInstanciaAudio(): HTMLAudioElement {
   if (!audioInstancia && typeof window !== 'undefined') {
-    audioInstancia = new Audio('/alarma.mp3');
+    audioInstancia = new Audio('/alarma_sismo.mp3');
     audioInstancia.preload = 'auto';
-    audioInstancia.loop = true; // Bucle infinito por requerimiento de emergencia
-    audioInstancia.volume = 1.0; // Volumen máximo para alertas críticas
+    audioInstancia.loop = true;
+    audioInstancia.volume = 1.0;
 
-    // Escuchador de respaldo para garantizar el bucle infinito en navegadores antiguos
+    // Fallback a /alarma.mp3 si /alarma_sismo.mp3 encontrase algún problema
+    audioInstancia.addEventListener('error', () => {
+      console.warn('[alarma.ts] Falló carga de /alarma_sismo.mp3, intentando /alarma.mp3');
+      if (audioInstancia) {
+        audioInstancia.src = '/alarma.mp3';
+        audioInstancia.load();
+        audioInstancia.play().catch(() => {});
+      }
+    });
+
     audioInstancia.addEventListener('ended', () => {
       if (audioInstancia && audioInstancia.loop) {
         audioInstancia.currentTime = 0;
@@ -54,12 +52,7 @@ function obtenerInstanciaAudio(): HTMLAudioElement {
 }
 
 /**
- * Reproduce el sonido de alarma en bucle infinito (loop = true).
- * Incorpora manejo de errores estricto para las políticas de Autoplay impuestas
- * por los navegadores modernos (capturando el rechazo de la promesa devuelta por audio.play()).
- * 
- * @returns Promesa que resuelve a `true` si el audio comenzó a reproducirse exitosamente,
- *          o `false` si el navegador bloqueó la reproducción automática hasta que medie interacción del usuario.
+ * Reproduce el archivo de audio de alarma en bucle infinito.
  */
 export async function reproducirAlarma(): Promise<boolean> {
   if (typeof window === 'undefined') return false;
@@ -67,33 +60,39 @@ export async function reproducirAlarma(): Promise<boolean> {
   const audio = obtenerInstanciaAudio();
   if (!audio) return false;
 
-  // Garantizar bucle infinito
   audio.loop = true;
+  audio.volume = 1.0;
 
   try {
     errorAutoplayDetectado = false;
+    audio.currentTime = 0;
     const playPromise = audio.play();
 
     if (playPromise !== undefined) {
       await playPromise;
-      console.log('[alarma.ts] Alarma sonora de emergencia activada en bucle infinito.');
+      console.log('[alarma.ts] Alarma sonora activada con éxito en bucle.');
       return true;
     }
     return true;
   } catch (error: unknown) {
     errorAutoplayDetectado = true;
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    console.warn(
-      '[alarma.ts] Bloqueo de política de reproducción automática (Autoplay Policy). ' +
-      'El navegador requiere un gesto de usuario previo para emitir sonido:',
-      errorMsg
-    );
-    return false;
+    console.warn('[alarma.ts] Intento con /alarma_sismo.mp3 bloqueado, reintentando con /alarma.mp3:', error);
+
+    try {
+      audio.src = '/alarma.mp3';
+      audio.load();
+      await audio.play();
+      errorAutoplayDetectado = false;
+      return true;
+    } catch (e) {
+      console.warn('[alarma.ts] Audio HTML bloqueado por navegador:', e);
+      return false;
+    }
   }
 }
 
 /**
- * Detiene la reproducción de la alarma inmediatamente y reinicia el cabezal de tiempo a cero.
+ * Detiene la reproducción de la alarma inmediatamente y reinicia a cero.
  */
 export function detenerAlarma(): void {
   if (typeof window === 'undefined' || !audioInstancia) return;
@@ -101,7 +100,7 @@ export function detenerAlarma(): void {
   try {
     audioInstancia.pause();
     audioInstancia.currentTime = 0;
-    console.log('[alarma.ts] Alarma sonora silenciada y reiniciada a segundo 0.');
+    console.log('[alarma.ts] Alarma sonora silenciada.');
   } catch (err) {
     console.error('[alarma.ts] Error al detener la alarma:', err);
   }

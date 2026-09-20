@@ -13,38 +13,26 @@ import { obtenerUbicacionActual, leerUltimaUbicacionAlmacenada } from './ubicaci
 
 export * from './alarma';
 export * from './ubicacion';
+export * from './monitoreoSismico';
 
 /**
  * Inicializa todos los servicios de fondo de la aplicación:
- * 1. Registra el Service Worker de FCM (/firebase-messaging-sw.js).
+ * 1. Registra el Service Worker unificado (/service-worker.js) para offline y auto-actualización.
  * 2. Comprueba si existe una 'ultima_ubicacion' guardada en localStorage.
  * 3. Escucha mensajes provenientes del Service Worker para reaccionar a alertas.
  */
 export function inicializarServiciosSegundoPlano(): void {
   if (typeof window === 'undefined') return;
 
-  // 1. Registro del Service Worker de segundo plano
+  // 1. Escuchar mensajes emitidos desde el Service Worker cuando el usuario hace clic en una notificación
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker
-        .register('/firebase-messaging-sw.js')
-        .then((registro) => {
-          console.log('[Servicios] Firebase Messaging Service Worker registrado correctamente:', registro.scope);
-        })
-        .catch((error) => {
-          console.warn('[Servicios] No se pudo registrar el Service Worker (esperado en algunos entornos de preview):', error);
-        });
-
-      // Escuchar mensajes emitidos desde el Service Worker cuando el usuario hace clic en una notificación
-      navigator.serviceWorker.addEventListener('message', (event) => {
-        if (event.data && event.data.type === 'ALERTA_DESASTRE_FCM') {
-          console.log('[Servicios] Mensaje recibido del Service Worker:', event.data.payload);
-          // Disparar evento personalizado en window para que los componentes reaccionen
-          window.dispatchEvent(
-            new CustomEvent('alerta-fcm-recibida', { detail: event.data.payload })
-          );
-        }
-      });
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event.data && (event.data.type === 'ALERTA_DESASTRE_FCM' || event.data.type === 'ALERTA_SISMICA')) {
+        console.log('[Servicios] Mensaje recibido del Service Worker:', event.data.payload);
+        window.dispatchEvent(
+          new CustomEvent('alerta-fcm-recibida', { detail: event.data.payload })
+        );
+      }
     });
   }
 

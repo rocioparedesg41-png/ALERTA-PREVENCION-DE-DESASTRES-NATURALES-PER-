@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
-import { ShieldAlert, LogIn, UserPlus, KeyRound, Mail, MapPin, Eye, EyeOff, Radio, AlertTriangle } from 'lucide-react';
+import { ShieldAlert, LogIn, UserPlus, KeyRound, Mail, MapPin, Eye, EyeOff, Radio, AlertTriangle, Download, Sparkles } from 'lucide-react';
+import { ShieldModal } from './ShieldModal';
+import { DownloadModal } from './DownloadModal';
 
 interface LoginCoverProps {
   onLoginSuccess: (user: { email: string; name: string }) => void;
@@ -14,6 +16,8 @@ export const LoginCover: React.FC<LoginCoverProps> = ({ onLoginSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [videoLoaded, setVideoLoaded] = useState(false);
+  const [isShieldModalOpen, setIsShieldModalOpen] = useState(false);
+  const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Animated 3D globe fallback on canvas only when video is not yet ready
@@ -208,9 +212,22 @@ export const LoginCover: React.FC<LoginCoverProps> = ({ onLoginSuccess }) => {
           {/* Header Badge */}
           <div className="flex items-center justify-between gap-3 mb-5 pb-4 border-b border-white/20">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-red-600/30 border border-red-500/40 flex items-center justify-center text-red-400 shadow-inner">
-                <ShieldAlert className="w-7 h-7" />
-              </div>
+              {/* Escudo SAPDENP interactivo: ampliable al hacer click */}
+              <button
+                type="button"
+                onClick={() => setIsShieldModalOpen(true)}
+                className="relative group focus:outline-none transition-transform hover:scale-105 active:scale-95 cursor-zoom-in shrink-0"
+                title="Click para ampliar el Escudo Oficial SAPDENP"
+                aria-label="Ampliar Escudo Oficial SAPDENP"
+              >
+                <img
+                  src="/escudo_sapsenp.png"
+                  alt="Escudo Oficial SAPDENP - Alerta y Prevención Perú"
+                  className="w-12 h-12 sm:w-14 sm:h-14 object-contain drop-shadow-[0_4px_14px_rgba(0,0,0,0.6)]"
+                  referrerPolicy="no-referrer"
+                />
+              </button>
+
               <div>
                 <div className="flex items-center gap-2">
                   <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
@@ -359,6 +376,18 @@ export const LoginCover: React.FC<LoginCoverProps> = ({ onLoginSuccess }) => {
             </span>
           </div>
 
+          {/* Opción de Descarga e Instalación (Web • iOS • Android) */}
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={() => setIsDownloadModalOpen(true)}
+              className="w-full py-2 px-3 bg-white/10 hover:bg-white/20 active:scale-[0.99] border border-white/25 rounded-lg text-xs font-semibold text-white flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+            >
+              <Download className="w-4 h-4 text-amber-400" />
+              <span>Instalar / Descargar App (Web • iOS • Android)</span>
+            </button>
+          </div>
+
           {/* Footer Author Stamp - Layout and style matching official reference */}
           <div className="mt-5 pt-3 border-t border-white/15 flex justify-center">
             <div className="inline-flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-2 rounded-xl bg-slate-950/70 backdrop-blur-md border border-white/10 shadow-lg">
@@ -385,6 +414,18 @@ export const LoginCover: React.FC<LoginCoverProps> = ({ onLoginSuccess }) => {
           </div>
         </motion.div>
       </div>
+
+      {/* Modal para ampliar el Escudo Oficial SAPDENP */}
+      <ShieldModal
+        isOpen={isShieldModalOpen}
+        onClose={() => setIsShieldModalOpen(false)}
+      />
+
+      {/* Modal de Descarga e Instalación */}
+      <DownloadModal
+        isOpen={isDownloadModalOpen}
+        onClose={() => setIsDownloadModalOpen(false)}
+      />
     </div>
   );
 };

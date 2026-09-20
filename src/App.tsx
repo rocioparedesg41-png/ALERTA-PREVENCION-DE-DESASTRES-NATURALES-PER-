@@ -18,6 +18,8 @@ import {
   Layers,
   Sparkles,
   Smartphone,
+  BookMarked,
+  Download,
 } from 'lucide-react';
 import { DepartmentData, DistrictData, DisasterType, ProvinceData } from './types/disasters';
 import { PERU_DEPARTMENTS, findClosestDistrict } from './data/peruData';
@@ -35,20 +37,23 @@ import { OfficialEntitiesModal } from './components/OfficialEntitiesModal';
 import { TermsModal } from './components/TermsModal';
 import { LiveNewsModal } from './components/LiveNewsModal';
 import { Reporte24Horas } from './components/Reporte24Horas';
+import { ManualUso } from './components/ManualUso';
+import { ManualModal } from './components/ManualModal';
+import { ShieldModal } from './components/ShieldModal';
+import { DownloadModal } from './components/DownloadModal';
 import { alarmManager } from './utils/audioAlarm';
+import {
+  EventoSismicoDetectado,
+  verificarSismoEnUbicacion,
+  dispararAlarmaSismica,
+  simularSismoEnUbicacion,
+} from './servicios/monitoreoSismico';
 
-export type AppTab = 'ubicacion' | 'mapa' | 'infografias' | 'mochila' | 'emergencia';
+export type AppTab = 'ubicacion' | 'mapa' | 'infografias' | 'mochila' | 'emergencia' | 'manual';
 
 export default function App() {
-  // Authentication state
-  const [currentUser, setCurrentUser] = useState<{ email: string; name: string } | null>(() => {
-    try {
-      const saved = localStorage.getItem('peru_alerta_auth_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch (e) {
-      return null;
-    }
-  });
+  // Authentication state - Se inicia siempre en la portada de inicio según requerimiento
+  const [currentUser, setCurrentUser] = useState<{ email: string; name: string } | null>(null);
 
   // Active Application Tab (eliminates long landing page scrolling)
   const [activeTab, setActiveTab] = useState<AppTab>('ubicacion');
@@ -75,11 +80,87 @@ export default function App() {
   // Active Disaster
   const [activeDisaster, setActiveDisaster] = useState<DisasterType>(() => 'sismo');
 
-  // Modals state (PromptGuide removed per explicit user instruction)
+  // Active Seismic Event detected at user location
+  const [activeSeismicEvent, setActiveSeismicEvent] = useState<EventoSismicoDetectado | null>(null);
+
+  // Modals state
   const [isSosOpen, setIsSosOpen] = useState(false);
   const [isPhonesOpen, setIsPhonesOpen] = useState(false);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
+  const [isManualOpen, setIsManualOpen] = useState(false);
   const [isLiveNewsOpen, setIsLiveNewsOpen] = useState(false);
+  const [isShieldOpen, setIsShieldOpen] = useState(false);
+  const [isDownloadOpen, setIsDownloadOpen] = useState(false);
+
+  // Monitoreo y Verificación Continua de Sismos en la Ubicación Seleccionada o Georreferenciada
+  useEffect(() => {
+    let cancelado = false;
+
+    const revisarSismosEnUbicacion = async () => {
+      try {
+        const evento = await verificarSismoEnUbicacion({
+          departamento: selectedDept.name,
+          provincia: selectedProv.name,
+          distrito: selectedDist.name,
+          lat: selectedDist.lat,
+          lng: selectedDist.lng,
+        });
+
+        if (!cancelado && evento) {
+          console.log('[Sismo] ¡Evento sísmico detectado en tu ubicación!', evento);
+          setActiveSeismicEvent(evento);
+          setActiveDisaster('sismo');
+          await dispararAlarmaSismica(evento);
+        }
+      } catch (err) {
+        console.warn('[Sismo] Error en verificación sísmica periódica:', err);
+      }
+    };
+
+    // Verificación inmediata al cargar o al cambiar la ubicación
+    revisarSismosEnUbicacion();
+
+    // Verificación recurrente en segundo plano cada 45 segundos
+    const intervalo = setInterval(revisarSismosEnUbicacion, 45000);
+
+    // Escuchar eventos globales de alarma sísmica
+    const onAlarmaSismica = (e: any) => {
+      if (e.detail) {
+        setActiveSeismicEvent(e.detail);
+        setActiveDisaster('sismo');
+      }
+    };
+    window.addEventListener('alarma-sismica-disparada', onAlarmaSismica);
+
+    return () => {
+      cancelado = true;
+      clearInterval(intervalo);
+      window.removeEventListener('alarma-sismica-disparada', onAlarmaSismica);
+    };
+  }, [selectedDept.name, selectedProv.name, selectedDist.name, selectedDist.lat, selectedDist.lng]);
+
+  // Solicitar permiso de notificaciones para que la alarma suene en segundo plano
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, []);
+
+  const handleProbarAlarmaSismica = async () => {
+    const sismoPrueba = simularSismoEnUbicacion(
+      {
+        departamento: selectedDept.name,
+        provincia: selectedProv.name,
+        distrito: selectedDist.name,
+        lat: selectedDist.lat,
+        lng: selectedDist.lng,
+      },
+      6.3
+    );
+    setActiveSeismicEvent(sismoPrueba);
+    setActiveDisaster('sismo');
+    await dispararAlarmaSismica(sismoPrueba);
+  };
 
   // Dark and Light Mode state with persistence
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -176,6 +257,12 @@ export default function App() {
       icon: PhoneForwarded,
       badge: '105 / 116 / 106',
     },
+    {
+      id: 'manual' as AppTab,
+      label: 'Manual de Uso',
+      icon: BookMarked,
+      badge: 'Guía',
+    },
   ];
 
   return (
@@ -189,17 +276,25 @@ export default function App() {
         onOpenSos={() => setIsSosOpen(true)}
         onOpenPhones={() => setIsPhonesOpen(true)}
         onOpenTerms={() => setIsTermsOpen(true)}
+        onOpenManual={() => setIsManualOpen(true)}
         onOpenLiveNews={() => setIsLiveNewsOpen(true)}
+        onOpenShieldModal={() => setIsShieldOpen(true)}
+        onOpenDownload={() => setIsDownloadOpen(true)}
       />
 
       {/* Synchronized Siren Alarm Banner */}
       <AlarmBanner
         locationName={selectedDist.name}
         departmentName={selectedDept.name}
+        activeSeismicEvent={activeSeismicEvent}
+        onDeactivateSeismicEvent={() => setActiveSeismicEvent(null)}
+        onTriggerTestAlarm={handleProbarAlarmaSismica}
         currentThreat={{
           type: activeDisaster.toUpperCase(),
           intensity: 'ALTA PRIORIDAD',
-          message: `Alerta Geodinámica en ${selectedDist.name} (${selectedProv.name}, ${selectedDept.name}) con protocolos activos de Defensa Civil e IGP.`,
+          message: activeSeismicEvent
+            ? activeSeismicEvent.mensajeAlerta
+            : `Alerta Geodinámica en ${selectedDist.name} (${selectedProv.name}, ${selectedDept.name}) con protocolos activos de Defensa Civil e IGP.`,
         }}
       />
 
@@ -583,6 +678,28 @@ export default function App() {
                 </div>
               </motion.div>
             )}
+
+            {/* TAB 6: Manual de Uso Oficial de la Aplicación */}
+            {activeTab === 'manual' && (
+              <motion.div
+                key="tab-manual"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <ManualUso
+                  onNavigateTab={(tab) => {
+                    setActiveTab(tab);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  onOpenDownloadModal={() => setIsDownloadOpen(true)}
+                  onOpenSos={() => setIsSosOpen(true)}
+                  onOpenPhones={() => setIsPhonesOpen(true)}
+                  onOpenLiveNews={() => setIsLiveNewsOpen(true)}
+                />
+              </motion.div>
+            )}
           </AnimatePresence>
         </div>
       </main>
@@ -613,6 +730,15 @@ export default function App() {
             className="text-slate-600 hover:text-red-600 transition-colors underline cursor-pointer font-medium"
           >
             Términos, Condiciones y Medalla
+          </button>
+          <span className="text-slate-300">•</span>
+          <button
+            type="button"
+            onClick={() => setIsManualOpen(true)}
+            className="text-slate-700 hover:text-red-600 transition-colors underline cursor-pointer font-bold flex items-center gap-1 text-red-700"
+          >
+            <BookMarked className="w-3.5 h-3.5 text-red-600" />
+            <span>Manual de Uso</span>
           </button>
           <span className="text-slate-300">•</span>
           <button
@@ -687,9 +813,35 @@ export default function App() {
         onClose={() => setIsTermsOpen(false)}
       />
 
+      {/* Modal de Manual de Uso Oficial SAPDENP (al costado de Términos y Condiciones) */}
+      <ManualModal
+        isOpen={isManualOpen}
+        onClose={() => setIsManualOpen(false)}
+        onNavigateTab={(tab) => {
+          setActiveTab(tab);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenDownloadModal={() => setIsDownloadOpen(true)}
+        onOpenSos={() => setIsSosOpen(true)}
+        onOpenPhones={() => setIsPhonesOpen(true)}
+        onOpenLiveNews={() => setIsLiveNewsOpen(true)}
+      />
+
       <LiveNewsModal
         isOpen={isLiveNewsOpen}
         onClose={() => setIsLiveNewsOpen(false)}
+      />
+
+      {/* Modal para ampliar el Escudo Oficial SAPDENP */}
+      <ShieldModal
+        isOpen={isShieldOpen}
+        onClose={() => setIsShieldOpen(false)}
+      />
+
+      {/* Modal de Descarga e Instalación (Web • Android • iOS) */}
+      <DownloadModal
+        isOpen={isDownloadOpen}
+        onClose={() => setIsDownloadOpen(false)}
       />
     </div>
   );
