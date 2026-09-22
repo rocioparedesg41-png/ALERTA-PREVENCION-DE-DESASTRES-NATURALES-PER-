@@ -27,6 +27,7 @@ import {
   CriteriosUbicacion,
   construirInformacionCompletaOficial,
   extraerAlertas8Instituciones,
+  extraerReportes24hRegion,
 } from './oficialesExtractionService';
 
 export interface ParametroClave {
@@ -65,6 +66,13 @@ export interface ReporteOficialGemini {
   periodoVigenciaTexto?: string;
   esLocal?: boolean;
   distanciaKmUsuario?: number;
+  // Campos estructurados de orden oficial según directiva:
+  referenciaOficial?: string;
+  fechaHoraOrigenLocal?: string;
+  latitudLongitud?: string;
+  profundidadTexto?: string;
+  intensidadMaxima?: string;
+  magnitud?: number;
 }
 
 export interface ConsultaReportesPayload {
@@ -149,6 +157,12 @@ export function formatearAlertasCrudas(
       periodoVigenciaTexto: alerta.periodoVigenciaTexto,
       esLocal: alerta.esLocal !== false,
       distanciaKmUsuario: alerta.distanciaKmUsuario,
+      referenciaOficial: alerta.referenciaOficial || alerta.lugarReferencia,
+      fechaHoraOrigenLocal: alerta.fechaHoraOrigenLocal || `${alerta.fechaLocalPerú} - ${alerta.horaLocalPerú}`,
+      latitudLongitud: alerta.latitudLongitud || alerta.coordenadasReferencia,
+      profundidadTexto: alerta.profundidadTexto || (alerta.institucion === 'IGP' ? '30 km' : 'Superficie / Nivel de Terreno (0 km)'),
+      intensidadMaxima: alerta.intensidadMaxima || (alerta.severidad ? `Nivel ${alerta.severidad} - ${criterios.distrito}` : `II-III ${criterios.distrito}`),
+      magnitud: alerta.magnitud,
     };
   });
 }
@@ -245,4 +259,30 @@ export async function consultarReportesOficiales(
   // 3. Formateo y validación de respaldo idéntica con deduplicación
   const respaldo = formatearAlertasCrudas(alertasCrudas24h, criterios);
   return deduplicarReportesOficiales(respaldo);
+}
+
+/**
+ * Consulta y sincronización oficial de los reportes de las últimas 24 horas netamente de la región:
+ * Extrae eventos ocurridos en esa región del IGP, SENAMHI, INDECI, COEN, ENFEN, CENEPRED, DHN y SIGRID.
+ */
+export async function consultarReportes24hRegion(
+  department: DepartmentData,
+  province: ProvinceData,
+  district: DistrictData
+): Promise<ReporteOficialGemini[]> {
+  const currentTime = new Date();
+  const criterios: CriteriosUbicacion = {
+    departamento: department.name,
+    provincia: province.name,
+    distrito: district.name,
+    lat: district.lat,
+    lng: district.lng,
+    altitudeMeters: district.altitudeMeters,
+    regionNatural: district.region,
+    currentTimeIso: currentTime.toISOString(),
+  };
+
+  const alertasRegionales = await extraerReportes24hRegion(criterios);
+  const formateados = formatearAlertasCrudas(alertasRegionales, criterios);
+  return deduplicarReportesOficiales(formateados);
 }

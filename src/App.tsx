@@ -20,6 +20,7 @@ import {
   Smartphone,
   BookMarked,
   Download,
+  AlertCircle,
 } from 'lucide-react';
 import { DepartmentData, DistrictData, DisasterType, ProvinceData } from './types/disasters';
 import { PERU_DEPARTMENTS, findClosestDistrict } from './data/peruData';
@@ -44,6 +45,7 @@ import { alarmManager } from './utils/audioAlarm';
 import {
   EventoSismicoDetectado,
   verificarSismoEnUbicacion,
+  verificarSismosEnRegion24h,
   dispararAlarmaSismica,
   simularSismoEnUbicacion,
 } from './servicios/monitoreoSismico';
@@ -137,6 +139,33 @@ export default function App() {
       window.removeEventListener('alarma-sismica-disparada', onAlarmaSismica);
     };
   }, [selectedDept.name, selectedProv.name, selectedDist.name, selectedDist.lat, selectedDist.lng]);
+
+  // Verificación si hay sismo en la región en las últimas 24 horas (activa el icono de admiración que late de reporte 24h)
+  const [haySismoEnRegion24h, setHaySismoEnRegion24h] = useState<boolean>(false);
+
+  useEffect(() => {
+    let cancelado = false;
+    verificarSismosEnRegion24h(selectedDept.name)
+      .then((eventos) => {
+        if (!cancelado) setHaySismoEnRegion24h(eventos.length > 0);
+      })
+      .catch(() => {
+        if (!cancelado) setHaySismoEnRegion24h(false);
+      });
+
+    const intervaloRegion = setInterval(() => {
+      verificarSismosEnRegion24h(selectedDept.name)
+        .then((eventos) => {
+          if (!cancelado) setHaySismoEnRegion24h(eventos.length > 0);
+        })
+        .catch(() => {});
+    }, 45000);
+
+    return () => {
+      cancelado = true;
+      clearInterval(intervaloRegion);
+    };
+  }, [selectedDept.name]);
 
   // Solicitar permiso de notificaciones para que la alarma suene en segundo plano
   useEffect(() => {
@@ -261,7 +290,8 @@ export default function App() {
       id: 'ubicacion' as AppTab,
       label: 'Ubicación y Riesgos',
       icon: MapPin,
-      badge: `${selectedDept.name}`,
+      badge: haySismoEnRegion24h ? '¡Sismo 24h!' : `${selectedDept.name}`,
+      isSismoAlert: haySismoEnRegion24h,
     },
     {
       id: 'mapa' as AppTab,
@@ -343,10 +373,15 @@ export default function App() {
                 >
                   <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-red-400' : 'text-slate-400'}`} />
                   <span className="truncate">{tab.label}</span>
+                  {(tab as any).isSismoAlert && (
+                    <AlertCircle className="w-3.5 h-3.5 text-red-500 animate-bounce shrink-0" />
+                  )}
                   {tab.badge && (
                     <span
                       className={`hidden lg:inline-block text-[10px] px-1.5 py-0.5 rounded font-mono ${
-                        isActive
+                        (tab as any).isSismoAlert
+                          ? 'bg-red-600 text-white font-bold animate-pulse'
+                          : isActive
                           ? 'bg-slate-800 text-slate-200'
                           : 'bg-slate-100 text-slate-600'
                       }`}
@@ -381,6 +416,25 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Si hay sismo en la región en las últimas 24h, botón con ícono de admiración que late hacia el reporte 24h */}
+            {haySismoEnRegion24h && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('ubicacion');
+                  setTimeout(() => {
+                    const el = document.getElementById('seccion-reporte-24-horas');
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }, 100);
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] uppercase tracking-wider animate-pulse shadow-xs cursor-pointer transition-colors"
+                title={`¡Sismo detectado en la región ${selectedDept.name} en las últimas 24 horas! Clic para ver reporte de 24 horas.`}
+              >
+                <AlertCircle className="w-3.5 h-3.5 animate-bounce shrink-0" />
+                <span>Reportes 24h: ¡Sismo en su región!</span>
+              </button>
+            )}
+
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Amenaza:</span>
             <span className="px-2.5 py-0.5 rounded font-bold uppercase text-[10px] bg-red-50 text-red-700 border border-red-200 tracking-wide">
               {activeDisaster}

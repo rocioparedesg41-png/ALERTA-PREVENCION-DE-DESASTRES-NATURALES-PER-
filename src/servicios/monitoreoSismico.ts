@@ -410,3 +410,121 @@ export async function dispararAlarmaSismica(sismo: EventoSismicoDetectado): Prom
     );
   }
 }
+
+/**
+ * Verifica si han ocurrido eventos sísmicos en la región (departamento) seleccionada por el usuario
+ * en las últimas 24 horas.
+ * OJO: Esta función filtra con estricto criterio regional de 24 horas para que el icono
+ * de admiración que late solo salte si ha ocurrido un evento en la región del usuario.
+ */
+export async function verificarSismosEnRegion24h(
+  departamento: string
+): Promise<EventoSismicoDetectado[]> {
+  try {
+    let listaSismos: any[] = [];
+    const depNorm = normalizar(departamento);
+
+    // 1. Obtener sismos recientes
+    if (typeof navigator === 'undefined' || navigator.onLine) {
+      try {
+        let res = await fetch('/api/sismos-igp', {
+          headers: { Accept: 'application/json' },
+          signal: AbortSignal.timeout(5000),
+        }).catch(() => null);
+
+        if (!res || !res.ok) {
+          res = await fetch('https://ultimosismo.igp.gob.pe/api/ultimo-sismo/ajaxb/2026', {
+            headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' },
+            signal: AbortSignal.timeout(5000),
+          }).catch(() => null);
+        }
+
+        if (res && res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            listaSismos = data;
+            try {
+              localStorage.setItem(CLAVE_CACHE_SISMOS, JSON.stringify(data));
+            } catch {}
+          }
+        }
+      } catch {}
+    }
+
+    if (listaSismos.length === 0) {
+      try {
+        const rawCache = localStorage.getItem(CLAVE_CACHE_SISMOS);
+        if (rawCache) listaSismos = JSON.parse(rawCache);
+      } catch {}
+    }
+
+    if (!Array.isArray(listaSismos) || listaSismos.length === 0) return [];
+
+    const nowMs = Date.now();
+    const ventana24hMs = 24 * 60 * 60 * 1000;
+    const eventosRegion: EventoSismicoDetectado[] = [];
+    const sismosVistos = new Set<string>();
+
+    for (const sismo of [...listaSismos].reverse()) {
+      if (!sismo.codigo || !sismo.latitud || !sismo.longitud) continue;
+
+      const codigoLimpio = String(sismo.codigo).trim();
+      if (sismosVistos.has(codigoLimpio)) continue;
+
+      const fechaStr = String(sismo.fecha_local || '').includes('T')
+        ? String(sismo.fecha_local).split('T')[0]
+        : String(sismo.fecha_local || '').slice(0, 10);
+      const horaStr = String(sismo.hora_local || '').includes('T')
+        ? String(sismo.hora_local).split('T')[1].slice(0, 8)
+        : String(sismo.hora_local || '').slice(0, 8);
+
+      const isoLocal = `${fechaStr}T${horaStr}-05:00`;
+      let sismoMs = new Date(isoLocal).getTime();
+      if (isNaN(sismoMs) && sismo.createdAt) {
+        sismoMs = new Date(sismo.createdAt).getTime();
+      }
+
+      // Estricto filtro de 24 horas
+      if (isNaN(sismoMs) || nowMs - sismoMs > ventana24hMs) {
+        continue;
+      }
+
+      const refNorm = normalizar(sismo.referencia || '');
+      // Coincide con la región (departamento) seleccionada por el usuario
+      const coincideRegion = refNorm.includes(depNorm);
+
+      if (coincideRegion) {
+        sismosVistos.add(codigoLimpio);
+        const mag = parseFloat(sismo.magnitud || '0');
+        const latS = parseFloat(sismo.latitud);
+        const lngS = parseFloat(sismo.longitud);
+
+        eventosRegion.push({
+          id: `igp-${codigoLimpio}`,
+          codigo: codigoLimpio,
+          magnitud: mag,
+          profundidad: parseFloat(sismo.profundidad || '15'),
+          referencia: sismo.referencia || `Región ${departamento}`,
+          latitud: latS,
+          longitud: lngS,
+          distanciaKm: 0,
+          intensidad: sismo.intensidad || (mag >= 5 ? 'IV-V' : 'II-III'),
+          fechaHoraLocal: `${fechaStr} ${horaStr}`,
+          timestampMs: sismoMs,
+          urlReporte: `https://ultimosismo.igp.gob.pe/evento/${codigoLimpio}`,
+          ubicacionAfectada: {
+            departamento,
+            provincia: '',
+            distrito: '',
+          },
+          mensajeAlerta: `Sismo M ${mag.toFixed(1)} registrado en la región ${departamento}. Epicentro: ${sismo.referencia}.`,
+        });
+      }
+    }
+
+    return eventosRegion;
+  } catch (err) {
+    console.warn('[monitoreoSismico] Error al verificar sismos en la región 24h:', err);
+    return [];
+  }
+}
