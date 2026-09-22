@@ -37,7 +37,6 @@ import { OfficialEntitiesModal } from './components/OfficialEntitiesModal';
 import { TermsModal } from './components/TermsModal';
 import { LiveNewsModal } from './components/LiveNewsModal';
 import { Reporte24Horas } from './components/Reporte24Horas';
-import { ManualUso } from './components/ManualUso';
 import { ManualModal } from './components/ManualModal';
 import { ShieldModal } from './components/ShieldModal';
 import { DownloadModal } from './components/DownloadModal';
@@ -49,7 +48,7 @@ import {
   simularSismoEnUbicacion,
 } from './servicios/monitoreoSismico';
 
-export type AppTab = 'ubicacion' | 'mapa' | 'infografias' | 'mochila' | 'emergencia' | 'manual';
+export type AppTab = 'ubicacion' | 'mapa' | 'infografias' | 'mochila' | 'emergencia';
 
 export default function App() {
   // Authentication state - Se inicia siempre en la portada de inicio según requerimiento
@@ -256,12 +255,6 @@ export default function App() {
       label: 'Central SOS y Teléfonos',
       icon: PhoneForwarded,
       badge: '105 / 116 / 106',
-    },
-    {
-      id: 'manual' as AppTab,
-      label: 'Manual de Uso',
-      icon: BookMarked,
-      badge: 'Guía',
     },
   ];
 
@@ -676,28 +669,6 @@ export default function App() {
                     Directorio Completo de Organismos Científicos
                   </button>
                 </div>
-              </motion.div>
-            )}
-
-            {/* TAB 6: Manual de Uso Oficial de la Aplicación */}
-            {activeTab === 'manual' && (
-              <motion.div
-                key="tab-manual"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
-              >
-                <ManualUso
-                  onNavigateTab={(tab) => {
-                    setActiveTab(tab);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  onOpenDownloadModal={() => setIsDownloadOpen(true)}
-                  onOpenSos={() => setIsSosOpen(true)}
-                  onOpenPhones={() => setIsPhonesOpen(true)}
-                  onOpenLiveNews={() => setIsLiveNewsOpen(true)}
-                />
               </motion.div>
             )}
           </AnimatePresence>

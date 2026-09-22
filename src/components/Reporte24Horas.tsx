@@ -33,7 +33,7 @@ import {
   consultarReportesOficiales,
   ReporteOficialGemini,
 } from '../servicios/geminiReportesService';
-import { construirInformacionCompletaOficial } from '../servicios/oficialesExtractionService';
+import { construirInformacionCompletaOficial, tieneAccesoMaritimo } from '../servicios/oficialesExtractionService';
 
 // Función de sanitización defensiva para asegurar que todos los enlaces oficiales
 // apunten directamente y de forma específica a la información emitida por cada entidad oficial.
@@ -209,16 +209,36 @@ export const Reporte24Horas: React.FC<Reporte24HorasProps> = ({
     }
   };
 
-  // Filtrar según la selección del usuario
+  // Filtrar según la selección del usuario y deduplicar estrictamente cualquier repetición de información
   const reportesFiltrados = useMemo(() => {
-    if (filtroTipo === 'todos') return reportes;
-    return reportes.filter((r) => r.tipoDesastre.toLowerCase() === filtroTipo.toLowerCase());
+    const vistosId = new Set<string>();
+    const vistosTitulos = new Set<string>();
+    const unicos = reportes.filter((r) => {
+      const idLimpio = String(r.id || '').trim();
+      const tituloNorm = String(r.titulo || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const clave = `${r.entidad}_${tituloNorm}`;
+
+      if (vistosId.has(idLimpio) || vistosTitulos.has(clave)) {
+        return false;
+      }
+      vistosId.add(idLimpio);
+      vistosTitulos.add(clave);
+      return true;
+    });
+
+    if (filtroTipo === 'todos') return unicos;
+    return unicos.filter((r) => r.tipoDesastre.toLowerCase() === filtroTipo.toLowerCase());
   }, [reportes, filtroTipo]);
 
   // Extraer tipos únicos de desastres reportados en las últimas 24h
   const tiposDisponibles = useMemo(() => {
-    return Array.from(new Set(reportes.map((r) => r.tipoDesastre)));
-  }, [reportes]);
+    return Array.from(new Set(reportesFiltrados.map((r) => r.tipoDesastre)));
+  }, [reportesFiltrados]);
 
   const getDisasterIcon = (tipo: DisasterType | string) => {
     const key = String(tipo).toLowerCase();
@@ -366,6 +386,14 @@ export const Reporte24Horas: React.FC<Reporte24HorasProps> = ({
     }
   };
 
+  const esCostera = useMemo(
+    () => tieneAccesoMaritimo(department.name, province.name),
+    [department.name, province.name]
+  );
+  const institucionesTexto = esCostera
+    ? 'IGP, SENAMHI, INDECI, COEN, CENEPRED, SIGRID, DHN y ENFEN'
+    : 'IGP, SENAMHI, INDECI, COEN, CENEPRED y SIGRID';
+
   return (
     <div
       id="seccion-reporte-24-horas"
@@ -387,7 +415,7 @@ export const Reporte24Horas: React.FC<Reporte24HorasProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Datos verificados de páginas gubernamentales (IGP, SENAMHI, DHN, CENEPRED, COEN, ENFEN) para{' '}
+              Datos verificados de páginas oficiales ({institucionesTexto}) para{' '}
               <strong className="text-slate-800 dark:text-slate-200 font-semibold">{district.name}</strong> ({province.name},{' '}
               {department.name}).
             </p>
@@ -431,10 +459,10 @@ export const Reporte24Horas: React.FC<Reporte24HorasProps> = ({
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
               Los centros de monitoreo en tiempo real de{' '}
               <strong className="text-slate-800 dark:text-slate-100 font-semibold">
-                IGP (CENSIS), SENAMHI, DHN, CENEPRED, COEN y ENFEN
+                {institucionesTexto}
               </strong>{' '}
-              no reportan sismos locales ni avisos meteorológicos u oceanográficos vigentes que afecten
-              a la provincia de <strong className="text-slate-900 dark:text-white">{province.name}</strong> ({department.name}).
+              no reportan eventos críticos vigentes durante las últimas 24 horas para{' '}
+              <strong className="text-slate-900 dark:text-white">{district.name}</strong> ({province.name}, {department.name}).
             </p>
           </div>
 
@@ -484,7 +512,7 @@ export const Reporte24Horas: React.FC<Reporte24HorasProps> = ({
                 {reportes.length === 1 ? 'reporte oficial activo' : 'reportes oficiales activos'}
               </span>
               <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                para la provincia de {province.name} (últimas 24h)
+                monitoreo oficial 24h ({district.name}, {province.name}, {department.name})
               </span>
             </div>
 
@@ -550,6 +578,15 @@ export const Reporte24Horas: React.FC<Reporte24HorasProps> = ({
                         <span className="text-[10px] font-mono font-bold bg-white dark:bg-[#18223f] text-slate-800 dark:text-slate-100 px-2.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 shadow-2xs">
                           {rep.tipoBoletinOficial || rep.codigoOficial}
                         </span>
+                        {rep.esLocal === false ? (
+                          <span className="text-[10px] font-medium bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded border border-slate-300 dark:border-slate-700">
+                            Nacional{rep.distanciaKmUsuario ? ` (${rep.distanciaKmUsuario} km)` : ''}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-800/80">
+                            Local / Región
+                          </span>
+                        )}
                       </div>
 
                       <span

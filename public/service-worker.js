@@ -178,23 +178,43 @@ async function verificarSismosFondo() {
     const lista = await res.json();
     if (!Array.isArray(lista) || lista.length === 0) return;
 
-    const primerSismo = lista[0];
-    const mag = parseFloat(primerSismo.magnitud || '0');
-    if (mag >= 4.5) {
-      // Notificar de inmediato al usuario en su sistema operativo
-      await self.registration.showNotification(
-        `🚨 ¡ALARMA SÍSMICA: M ${mag.toFixed(1)} EN ${ubicacionGuardada.distrito.toUpperCase()}!`,
-        {
-          body: `Sismo detectado por el IGP en tu zona. ${primerSismo.referencia}. ¡Dirígete a zona segura!`,
-          icon: '/icons/icon-192x192.png',
-          badge: '/icons/icon-192x192.png',
-          vibrate: [600, 200, 600, 200, 1000],
-          tag: 'alarma-sismica-activa',
-          renotify: true,
-          requireInteraction: true,
-        }
-      );
+    // Tomar el sismo más reciente (último elemento del arreglo del CENSIS-IGP)
+    const ultimoSismo = lista[lista.length - 1];
+    if (!ultimoSismo || !ultimoSismo.codigo) return;
+
+    const fechaStr = String(ultimoSismo.fecha_local || '').includes('T')
+      ? String(ultimoSismo.fecha_local).split('T')[0]
+      : String(ultimoSismo.fecha_local || '').slice(0, 10);
+    const horaStr = String(ultimoSismo.hora_local || '').includes('T')
+      ? String(ultimoSismo.hora_local).split('T')[1].slice(0, 8)
+      : String(ultimoSismo.hora_local || '').slice(0, 8);
+
+    const sismoMs = new Date(`${fechaStr}T${horaStr}-05:00`).getTime();
+    const nowMs = Date.now();
+
+    // Solo alertar si el sismo está ocurriendo en este momento (máximo 3 minutos de antigüedad)
+    if (isNaN(sismoMs) || nowMs - sismoMs > 3 * 60 * 1000) {
+      return;
     }
+
+    const mag = parseFloat(ultimoSismo.magnitud || '0');
+    const codigoLimpio = String(ultimoSismo.codigo).trim();
+    const urlReporte = `https://ultimosismo.igp.gob.pe/evento/${codigoLimpio}`;
+
+    // Notificar al usuario con enlace directo al reporte del IGP
+    await self.registration.showNotification(
+      `🚨 ¡ALARMA SÍSMICA: M ${mag.toFixed(1)} EN ${ubicacionGuardada.distrito.toUpperCase()}!`,
+      {
+        body: `Sismo detectado por el IGP (${ultimoSismo.referencia}). ¡Toca aquí para ver el reporte oficial del IGP!`,
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/icon-192x192.png',
+        vibrate: [600, 200, 600, 200, 1000],
+        tag: `alarma-sismica-${codigoLimpio}`,
+        data: { url: urlReporte },
+        renotify: true,
+        requireInteraction: true,
+      }
+    );
   } catch (e) {
     // Si está offline en segundo plano, no interrumpe
   }
@@ -202,15 +222,22 @@ async function verificarSismosFondo() {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const targetUrl = event.notification.data?.url || 'https://ultimosismo.igp.gob.pe';
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Si el enlace es externo al reporte del IGP, abrirlo en nueva pestaña
+      if (targetUrl.startsWith('http')) {
+        if (clients.openWindow) {
+          return clients.openWindow(targetUrl);
+        }
+      }
       for (const client of clientList) {
         if (client.url && 'focus' in client) {
           return client.focus();
         }
       }
       if (clients.openWindow) {
-        return clients.openWindow('/');
+        return clients.openWindow(targetUrl);
       }
     })
   );

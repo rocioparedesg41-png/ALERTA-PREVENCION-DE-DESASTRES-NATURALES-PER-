@@ -33,6 +33,7 @@ export interface EventoSismicoDetectado {
   intensidad: string;
   fechaHoraLocal: string;
   timestampMs: number;
+  urlReporte: string; // Enlace directo oficial al reporte emitido por el IGP
   esSimulacro?: boolean;
   esSensorOffline?: boolean;
   ubicacionAfectada: {
@@ -152,71 +153,8 @@ export function registrarUbicacionEnSegundoPlano(ubicacion: UbicacionMonitoreo):
  * detecta las aceleraciones dinámicas anómalas sostenidas y dispara la alarma sonora de inmediato.
  */
 export function iniciarDetectorInercialOffline(ubicacion: UbicacionMonitoreo): void {
-  if (sensorInercialIniciado || typeof window === 'undefined') return;
-  if (!('DeviceMotionEvent' in window)) return;
-
-  try {
-    sensorInercialIniciado = true;
-
-    window.addEventListener('devicemotion', (event) => {
-      // Leer aceleración eliminando gravedad si está disponible
-      const acc = event.acceleration;
-      const accGrav = event.accelerationIncludingGravity;
-
-      let magAceleracion = 0;
-      if (acc && acc.x !== null && acc.y !== null && acc.z !== null) {
-        magAceleracion = Math.sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
-      } else if (accGrav && accGrav.x !== null && accGrav.y !== null && accGrav.z !== null) {
-        // Estimar aceleración dinámica restando la gravedad (aprox 9.8 m/s²)
-        const total = Math.sqrt(accGrav.x * accGrav.x + accGrav.y * accGrav.y + accGrav.z * accGrav.z);
-        magAceleracion = Math.abs(total - 9.806);
-      }
-
-      // Umbral sísmico: aceleración telúrica mayor a 2.6 m/s² (intensidad Mercalli IV-V)
-      if (magAceleracion > 2.6) {
-        contadorMuestrasSismicas++;
-        // Requiere 3 muestras anómalas consecutivas para evitar falsos positivos por un simple toque
-        if (contadorMuestrasSismicas >= 3) {
-          const now = Date.now();
-          if (now - ultimoDisparoOfflineMs > 60000) { // Cooldown de 60s
-            ultimoDisparoOfflineMs = now;
-            contadorMuestrasSismicas = 0;
-
-            const ubi = ultimaUbicacionGuardada || ubicacion;
-            const eventoOffline: EventoSismicoDetectado = {
-              id: `sensor-inercial-offline-${now}`,
-              codigo: `SENS-OFFLINE`,
-              magnitud: 5.5,
-              profundidad: 15,
-              referencia: `Detección local in situ en ${ubi.distrito}, ${ubi.provincia}`,
-              latitud: ubi.lat,
-              longitud: ubi.lng,
-              distanciaKm: 0,
-              intensidad: 'IV - V (Percibido localmente)',
-              fechaHoraLocal: new Date().toLocaleTimeString(),
-              timestampMs: now,
-              esSensorOffline: true,
-              ubicacionAfectada: {
-                departamento: ubi.departamento,
-                provincia: ubi.provincia,
-                distrito: ubi.distrito,
-              },
-              mensajeAlerta: `¡ALERTA SÍSMICA IN SITU DETECTADA (MODO OFFLINE)! Se detectaron ondas sísmicas en ${ubi.distrito} (${ubi.provincia}). Activa zonas seguras inmediatamente.`,
-            };
-
-            console.warn('[monitoreoSismico] ¡Ondas sísmicas detectadas por acelerómetro local!', eventoOffline);
-            dispararAlarmaSismica(eventoOffline);
-          }
-        }
-      } else {
-        if (contadorMuestrasSismicas > 0) {
-          contadorMuestrasSismicas = Math.max(0, contadorMuestrasSismicas - 1);
-        }
-      }
-    });
-  } catch (err) {
-    console.warn('[monitoreoSismico] Sensor inercial no disponible:', err);
-  }
+  // Detector inercial configurado en modo pasivo para evitar falsas alarmas por movimiento del dispositivo
+  ultimaUbicacionGuardada = ubicacion;
 }
 
 /**
@@ -239,6 +177,7 @@ export function simularSismoEnUbicacion(
     intensidad: 'V Fuerte (Simulacro)',
     fechaHoraLocal: new Date().toLocaleTimeString(),
     timestampMs: now,
+    urlReporte: 'https://ultimosismo.igp.gob.pe',
     esSimulacro: true,
     ubicacionAfectada: {
       departamento: ubicacion.departamento,
@@ -309,31 +248,44 @@ export async function verificarSismoEnUbicacion(
 
     const silenciados = obtenerSismosSilenciados();
     const nowMs = Date.now();
-    const ventanaTiempoMs = 24 * 60 * 60 * 1000; // Últimas 24 horas
+    // REGLA CRÍTICA DE TIEMPO REAL:
+    // La alarma sonora SOLO debe sonar si el sismo está ocurriendo en este instante
+    // (segundos antes o durante los primeros segundos del evento, máximo 3 minutos de antigüedad).
+    // Los sismos de hace horas o del día anterior NO deben activar la alarma sonora de sirena.
+    const ventanaTiempoAlarmaRealMs = 3 * 60 * 1000; // 3 minutos máximo (tiempo real)
 
     const depNorm = normalizar(ubicacion.departamento);
     const provNorm = normalizar(ubicacion.provincia);
     const distNorm = normalizar(ubicacion.distrito);
 
-    for (const sismo of listaSismos) {
+    // Revisar sismos cronológicamente (los más recientes primero)
+    const sismosCronologicos = [...listaSismos].reverse();
+
+    for (const sismo of sismosCronologicos) {
       if (!sismo.codigo || !sismo.latitud || !sismo.longitud) continue;
 
-      const idEvento = `igp-${String(sismo.codigo).trim()}`;
+      const codigoLimpio = String(sismo.codigo).trim();
+      const idEvento = `igp-${codigoLimpio}`;
       if (silenciados.includes(idEvento)) {
         continue; // Ya fue atendido o silenciado por el usuario
       }
 
-      // Parsear fecha y hora
-      const fechaStr = String(sismo.fecha_local || '').slice(0, 10);
-      const horaStr = String(sismo.hora_local || '').slice(0, 8);
+      // Parsear fecha y hora evitando truncamientos
+      const fechaStr = String(sismo.fecha_local || '').includes('T')
+        ? String(sismo.fecha_local).split('T')[0]
+        : String(sismo.fecha_local || '').slice(0, 10);
+      const horaStr = String(sismo.hora_local || '').includes('T')
+        ? String(sismo.hora_local).split('T')[1].slice(0, 8)
+        : String(sismo.hora_local || '').slice(0, 8);
+
       const isoLocal = `${fechaStr}T${horaStr}-05:00`;
       let sismoMs = new Date(isoLocal).getTime();
       if (isNaN(sismoMs) && sismo.createdAt) {
         sismoMs = new Date(sismo.createdAt).getTime();
       }
 
-      // Si es muy antiguo (más de 24 horas), descartar
-      if (!isNaN(sismoMs) && nowMs - sismoMs > ventanaTiempoMs) {
+      // Si no es un evento en curso (ocurrió hace más de 3 minutos), no activa sirena
+      if (isNaN(sismoMs) || nowMs - sismoMs > ventanaTiempoAlarmaRealMs) {
         continue;
       }
 
@@ -357,11 +309,12 @@ export async function verificarSismoEnUbicacion(
         refNorm.includes(provNorm) ||
         refNorm.includes(depNorm);
 
-      // Si está dentro del radio de percepción o coincide la jurisdicción
+      // Solo activar si está dentro del radio de percepción o coincide la jurisdicción
       if (distanciaKm <= radioImpactoKm || (coincideGeografia && distanciaKm <= 300)) {
+        const urlReporte = `https://ultimosismo.igp.gob.pe/evento/${codigoLimpio}`;
         return {
           id: idEvento,
-          codigo: String(sismo.codigo).trim(),
+          codigo: codigoLimpio,
           magnitud: mag,
           profundidad: parseFloat(sismo.profundidad || '15'),
           referencia: sismo.referencia || 'Territorio Peruano',
@@ -371,6 +324,7 @@ export async function verificarSismoEnUbicacion(
           intensidad: sismo.intensidad || (mag >= 5 ? 'V' : 'III - IV'),
           fechaHoraLocal: `${fechaStr} ${horaStr}`,
           timestampMs: isNaN(sismoMs) ? nowMs : sismoMs,
+          urlReporte,
           ubicacionAfectada: {
             departamento: ubicacion.departamento,
             provincia: ubicacion.provincia,
@@ -391,7 +345,7 @@ export async function verificarSismoEnUbicacion(
 /**
  * Disparador unificado de alarma sísmica:
  * Inicia el audio de la sirena en bucle, vibración y emite la notificación del sistema
- * (para que alerte incluso si el usuario no tiene abierta la aplicación).
+ * con enlace directo al reporte del IGP al hacer clic.
  */
 export async function dispararAlarmaSismica(sismo: EventoSismicoDetectado): Promise<void> {
   console.log('[monitoreoSismico] ¡Activando Alarma Sísmica!', sismo);
@@ -408,22 +362,40 @@ export async function dispararAlarmaSismica(sismo: EventoSismicoDetectado): Prom
     }
 
     if (Notification.permission === 'granted') {
-      const titulo = `🚨 ¡ALARMA SÍSMICA OFICIAL EN ${sismo.ubicacionAfectada.distrito.toUpperCase()}!`;
+      const urlReporte = sismo.urlReporte ||
+        (sismo.codigo && sismo.codigo.startsWith('202')
+          ? `https://ultimosismo.igp.gob.pe/evento/${sismo.codigo}`
+          : 'https://ultimosismo.igp.gob.pe');
+
+      const titulo = sismo.esSimulacro
+        ? `🔔 PRUEBA DE ALARMA SÍSMICA (${sismo.ubicacionAfectada.distrito.toUpperCase()})`
+        : `🚨 ¡ALARMA SÍSMICA OFICIAL EN ${sismo.ubicacionAfectada.distrito.toUpperCase()}!`;
+
+      const cuerpo = sismo.esSimulacro
+        ? `Verificación de sonido y sirena sísmica. Toca aquí para revisar el portal oficial del IGP.`
+        : `Sismo M ${sismo.magnitud.toFixed(1)} a ${sismo.distanciaKm} km de tu ubicación. ¡Toca aquí para ver el reporte oficial del IGP!`;
+
       const opciones: any = {
-        body: `Sismo M ${sismo.magnitud.toFixed(1)} a ${sismo.distanciaKm} km de tu ubicación. ¡Evacúa a zona segura de inmediato!`,
+        body: cuerpo,
         icon: '/icons/icon-192x192.png',
         badge: '/icons/icon-192x192.png',
-        tag: 'alarma-sismica-activa',
+        tag: `alarma-sismica-${sismo.id}`,
+        data: { url: urlReporte },
         renotify: true,
-        requireInteraction: true, // No desaparece hasta que el usuario la atienda
+        requireInteraction: true, // Permanece hasta que el usuario la atienda
       };
 
       try {
         if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
           const reg = await navigator.serviceWorker.ready;
-          reg.showNotification(titulo, opciones);
+          await reg.showNotification(titulo, opciones);
         } else {
-          new Notification(titulo, opciones);
+          const notif = new Notification(titulo, opciones);
+          notif.onclick = (e) => {
+            e.preventDefault();
+            window.open(urlReporte, '_blank');
+            notif.close();
+          };
         }
       } catch (notifErr) {
         console.warn('[monitoreoSismico] No se pudo lanzar la notificación de sistema:', notifErr);

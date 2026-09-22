@@ -775,7 +775,16 @@ function igpApiPlugin(): Plugin {
           let alertasCrudas: any[] = [];
 
           const formatearRespaldo = () => {
-            return alertasCrudas.map((a: any) => ({
+            const vistosResp = new Set<string>();
+            const alertasUnicas = alertasCrudas.filter((a: any) => {
+              const clave = `${a.institucion}_${String(a.titulo || '').toLowerCase().trim()}`;
+              if (vistosResp.has(clave) || vistosResp.has(a.id)) return false;
+              vistosResp.add(clave);
+              vistosResp.add(a.id);
+              return true;
+            });
+
+            return alertasUnicas.map((a: any) => ({
               id: a.id,
               tipoDesastre: a.tipoDesastre,
               codigoOficial: a.codigoOficial,
@@ -803,13 +812,15 @@ function igpApiPlugin(): Plugin {
               descripcion: a.descripcionOficial,
               parametrosClave: a.parametrosTecnicos,
               datosAdicionalesOficiales: a.datosVerificados,
-              zonaAfectada: provincia,
+              zonaAfectada: `${distrito}, ${provincia}`,
               recomendacionDefensaCivil: a.medidaDefensaCivil,
               boletinNombre: `${a.institucion} ${a.codigoOficial}`,
               esSismoReal: a.institucion === 'IGP',
               tipoBoletinOficial: a.tipoBoletinOficial || `Boletín / Alerta Informativa (${a.institucion})`,
               informacionCompletaOficial: a.informacionCompletaOficial || a.descripcionOficial,
               periodoVigenciaTexto: a.periodoVigenciaTexto,
+              esLocal: a.esLocal !== false,
+              distanciaKmUsuario: a.distanciaKmUsuario,
             }));
           };
 
@@ -817,10 +828,18 @@ function igpApiPlugin(): Plugin {
             if (req.method === 'POST') {
               const body = await new Promise<string>((resolve) => {
                 let acc = '';
+                const timer = setTimeout(() => resolve(acc), 2000);
                 req.on('data', (chunk) => (acc += chunk));
-                req.on('end', () => resolve(acc));
-                req.on('error', () => resolve(''));
+                req.on('end', () => {
+                  clearTimeout(timer);
+                  resolve(acc);
+                });
+                req.on('error', () => {
+                  clearTimeout(timer);
+                  resolve('');
+                });
                 if (req.complete) {
+                  clearTimeout(timer);
                   resolve(acc);
                 }
               });
@@ -876,13 +895,13 @@ REGLAS OBLIGATORIAS:
 - ENLACES DIRECTOS VÁLIDOS: El campo "enlace_oficial" es obligatorio y debe conservar exactamente los enlaces oficiales provistos en cada alerta extraída (nunca inventar dominios rotos o sin barra diagonal).
 - CONTROL DE VACÍO Y CERO ALUCINACIONES: Si no hay alertas que cumplan ambos filtros, retorna estrictamente [].`;
 
-            const prompt = `A continuación tienes la lista de alertas oficiales extraídas para la provincia de ${provincia} (${departamento}):
+            const prompt = `A continuación tienes la lista de alertas oficiales extraídas para el distrito de ${distrito}, provincia de ${provincia} (${departamento}):
 ${JSON.stringify(alertasCrudas, null, 2)}
 
 Estructura y valida el JSON final para alimentar las tarjetas de la interfaz. Si no hay alertas válidas, retorna [].`;
 
             try {
-              const response = await ai.models.generateContent({
+              const geminiCall = ai.models.generateContent({
                 model: 'gemini-3.1-flash-lite',
                 contents: prompt,
                 config: {
@@ -914,7 +933,7 @@ Estructura y valida el JSON final para alimentar las tarjetas de la interfaz. Si
                         titulo: { type: Type.STRING },
                         entidad: {
                           type: Type.STRING,
-                          enum: ['IGP', 'SENAMHI', 'COEN', 'INDECI', 'CENEPRED', 'SIGRID', 'DHN'],
+                          enum: ['IGP', 'SENAMHI', 'COEN', 'INDECI', 'CENEPRED', 'SIGRID', 'DHN', 'ENFEN'],
                         },
                         entidadNombreCompleto: { type: Type.STRING },
                         entidadUrl: { type: Type.STRING },
@@ -953,6 +972,8 @@ Estructura y valida el JSON final para alimentar las tarjetas de la interfaz. Si
                         tipoBoletinOficial: { type: Type.STRING },
                         informacionCompletaOficial: { type: Type.STRING },
                         periodoVigenciaTexto: { type: Type.STRING },
+                        esLocal: { type: Type.BOOLEAN },
+                        distanciaKmUsuario: { type: Type.NUMBER },
                       },
                       required: [
                         'id',
@@ -976,10 +997,17 @@ Estructura y valida el JSON final para alimentar las tarjetas de la interfaz. Si
                 },
               });
 
+              // Limitar llamada a Gemini a 3.5 segundos para no bloquear la UI
+              const timeoutPromise = new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('Timeout de respuesta de Gemini')), 3500)
+              );
+
+              const response: any = await Promise.race([geminiCall, timeoutPromise]);
+
               const responseText = response.text || '[]';
               const rawParsed = JSON.parse(responseText);
               const reportes = (Array.isArray(rawParsed) ? rawParsed : []).map((r: any) => {
-                const original = alertasCrudas.find((a: any) => a.id === r.id || a.institucion === r.entidad);
+                const original = alertasCrudas.find((a: any) => a.id === r.id || a.codigoOficial === r.codigoOficial);
                 if (original) {
                   if (original.enlace_oficial) r.enlace_oficial = original.enlace_oficial;
                   if (original.enlacePdfDirecto) r.enlacePdfDirecto = original.enlacePdfDirecto;
@@ -987,15 +1015,27 @@ Estructura y valida el JSON final para alimentar las tarjetas de la interfaz. Si
                   if (original.tipoBoletinOficial) r.tipoBoletinOficial = original.tipoBoletinOficial;
                   if (original.informacionCompletaOficial) r.informacionCompletaOficial = original.informacionCompletaOficial;
                   if (original.periodoVigenciaTexto) r.periodoVigenciaTexto = original.periodoVigenciaTexto;
+                  r.esLocal = original.esLocal !== false;
+                  r.distanciaKmUsuario = original.distanciaKmUsuario;
                 }
                 return r;
               });
 
+              // Deduplicación estricta de salida
+              const vistosRes = new Set<string>();
+              const reportesDeduplicados = reportes.filter((r: any) => {
+                const clave = `${r.entidad}_${String(r.titulo || '').toLowerCase().trim()}`;
+                if (vistosRes.has(clave) || vistosRes.has(r.id)) return false;
+                vistosRes.add(clave);
+                vistosRes.add(r.id);
+                return true;
+              });
+
               res.setHeader('Content-Type', 'application/json; charset=utf-8');
               res.setHeader('Access-Control-Allow-Origin', '*');
-              res.end(JSON.stringify({ reportes }));
+              res.end(JSON.stringify({ reportes: reportesDeduplicados }));
             } catch (aiErr: any) {
-              // Si la cuota gratuita de Gemini se agotó (429), activar cooldown de 60 segundos
+              // Si la cuota de Gemini falla o tarda, usar el respaldo determinista inmediatamente
               geminiRateLimitUntil = Date.now() + 60000;
               const reportes = formatearRespaldo();
               res.setHeader('Content-Type', 'application/json; charset=utf-8');

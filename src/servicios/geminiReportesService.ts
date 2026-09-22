@@ -26,7 +26,7 @@ import {
   AlertaOficialCruda,
   CriteriosUbicacion,
   construirInformacionCompletaOficial,
-  extraerAlertas7Instituciones,
+  extraerAlertas8Instituciones,
 } from './oficialesExtractionService';
 
 export interface ParametroClave {
@@ -63,6 +63,8 @@ export interface ReporteOficialGemini {
   tipoBoletinOficial?: string;
   informacionCompletaOficial?: string;
   periodoVigenciaTexto?: string;
+  esLocal?: boolean;
+  distanciaKmUsuario?: number;
 }
 
 export interface ConsultaReportesPayload {
@@ -138,20 +140,48 @@ export function formatearAlertasCrudas(
       descripcion: alerta.descripcionOficial,
       parametrosClave: alerta.parametrosTecnicos,
       datosAdicionalesOficiales: alerta.datosVerificados,
-      zonaAfectada: criterios.provincia,
+      zonaAfectada: `${criterios.distrito}, ${criterios.provincia}`,
       recomendacionDefensaCivil: alerta.medidaDefensaCivil,
       boletinNombre: `${alerta.institucion} ${alerta.codigoOficial}`,
       esSismoReal: alerta.institucion === 'IGP',
       tipoBoletinOficial: alerta.tipoBoletinOficial || `Boletín / Alerta Informativa (${alerta.institucion})`,
       informacionCompletaOficial: construirInformacionCompletaOficial(alerta),
       periodoVigenciaTexto: alerta.periodoVigenciaTexto,
+      esLocal: alerta.esLocal !== false,
+      distanciaKmUsuario: alerta.distanciaKmUsuario,
     };
   });
 }
 
 /**
- * Consulta y sincronización unificada de las 7 instituciones:
- * 1. Extrae alertas reales de las 7 instituciones bajo filtro de 24h y geografía.
+ * Deduplicación estricta de reportes oficiales para garantizar cero repetición
+ * de información en la interfaz de usuario.
+ */
+export function deduplicarReportesOficiales(reportes: ReporteOficialGemini[]): ReporteOficialGemini[] {
+  const vistos = new Set<string>();
+  const vistosTitulos = new Set<string>();
+  const resultado: ReporteOficialGemini[] = [];
+
+  for (const r of reportes) {
+    const idLimpio = String(r.id || '').trim();
+    const tituloLimpio = String(r.titulo || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const claveTitulo = `${r.entidad}_${tituloLimpio}`;
+
+    if (vistos.has(idLimpio) || vistosTitulos.has(claveTitulo)) {
+      continue;
+    }
+
+    vistos.add(idLimpio);
+    vistosTitulos.add(claveTitulo);
+    resultado.push(r);
+  }
+
+  return resultado;
+}
+
+/**
+ * Consulta y sincronización unificada de las 8 instituciones:
+ * 1. Extrae alertas reales de las instituciones bajo filtro de 24h y geografía pertinente.
  * 2. Si no hay alertas reales, retorna [] de inmediato (Control de Vacío).
  * 3. Si hay alertas, utiliza a Gemini como formateador inteligente estructurando el JSON.
  */
@@ -172,8 +202,8 @@ export async function consultarReportesOficiales(
     currentTimeIso: currentTime.toISOString(),
   };
 
-  // 1. Conexión directa y extracción de las 7 instituciones oficiales
-  const alertasCrudas24h = await extraerAlertas7Instituciones(criterios);
+  // 1. Conexión directa y extracción de las 8 instituciones oficiales (IGP, SENAMHI, INDECI, COEN, CENEPRED, SIGRID, DHN, ENFEN)
+  const alertasCrudas24h = await extraerAlertas8Instituciones(criterios);
 
   // REGLA DE VACÍO: Si no hay alertas reales en las últimas 24h para esta zona, retornar []
   if (alertasCrudas24h.length === 0) {
@@ -202,8 +232,9 @@ export async function consultarReportesOficiales(
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data.reportes) && data.reportes.length > 0) {
-        // Validación estricta final de enlaces oficiales
-        return data.reportes.filter((r: ReporteOficialGemini) => Boolean(r.enlace_oficial));
+        // Validación estricta final de enlaces oficiales y deduplicación
+        const validos = data.reportes.filter((r: ReporteOficialGemini) => Boolean(r.enlace_oficial));
+        return deduplicarReportesOficiales(validos);
       }
     }
   } catch (error) {
@@ -211,6 +242,7 @@ export async function consultarReportesOficiales(
     // el formateador determinista entrega la estructura con las mismas reglas
   }
 
-  // 3. Formateo y validación de respaldo idéntica
-  return formatearAlertasCrudas(alertasCrudas24h, criterios);
+  // 3. Formateo y validación de respaldo idéntica con deduplicación
+  const respaldo = formatearAlertasCrudas(alertasCrudas24h, criterios);
+  return deduplicarReportesOficiales(respaldo);
 }
