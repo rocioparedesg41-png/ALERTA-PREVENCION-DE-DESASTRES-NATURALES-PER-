@@ -133,7 +133,7 @@ export const DownloadModal: React.FC<DownloadModalProps> = ({ isOpen, onClose })
                 <Download className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base sm:text-lg font-bold leading-tight">
+                <h3 className="text-base sm:text-lg font-bold leading-tight text-slate-900 dark:text-white">
                   Descargar e Instalar Aplicación
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -410,13 +410,13 @@ export const DownloadModal: React.FC<DownloadModalProps> = ({ isOpen, onClose })
 
           {/* Footer */}
           <div className="px-5 sm:px-6 py-3.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-between">
-            <span className="text-[11px] text-slate-500">
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">
               PWA Certificada • Cumplimiento SINAGERD
             </span>
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-black text-white font-bold text-xs transition-colors cursor-pointer"
+              className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-black dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs transition-colors cursor-pointer"
             >
               Cerrar
             </button>

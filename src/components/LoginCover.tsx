@@ -1,14 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
-import { ShieldAlert, LogIn, UserPlus, KeyRound, Mail, MapPin, Eye, EyeOff, Radio, AlertTriangle, Download, Sparkles } from 'lucide-react';
+import { ShieldAlert, LogIn, UserPlus, KeyRound, Mail, MapPin, Eye, EyeOff, Radio, AlertTriangle, Download, Sparkles, Sun, Moon } from 'lucide-react';
 import { ShieldModal } from './ShieldModal';
 import { DownloadModal } from './DownloadModal';
 
 interface LoginCoverProps {
   onLoginSuccess: (user: { email: string; name: string }) => void;
+  theme?: 'light' | 'dark';
+  onToggleTheme?: () => void;
 }
 
-export const LoginCover: React.FC<LoginCoverProps> = ({ onLoginSuccess }) => {
+export const LoginCover: React.FC<LoginCoverProps> = ({
+  onLoginSuccess,
+  theme = 'light',
+  onToggleTheme,
+}) => {
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('ciudadano@alerta.gob.pe');
   const [password, setPassword] = useState('Peruseguro2026!');
@@ -173,6 +179,31 @@ export const LoginCover: React.FC<LoginCoverProps> = ({ onLoginSuccess }) => {
 
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden bg-slate-950 font-sans">
+      {/* Botón flotante para alternar Modo Oscuro / Modo Claro en la portada de ingreso */}
+      {onToggleTheme && (
+        <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onToggleTheme}
+            className="px-3 py-1.5 rounded-full bg-slate-900/80 hover:bg-slate-800 text-white border border-white/20 text-xs font-semibold flex items-center gap-1.5 backdrop-blur-md transition-all shadow-md cursor-pointer active:scale-95"
+            title={theme === 'dark' ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'}
+            aria-label="Alternar modo oscuro y claro"
+          >
+            {theme === 'dark' ? (
+              <>
+                <Sun className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-[11px] font-medium">Modo Claro</span>
+              </>
+            ) : (
+              <>
+                <Moon className="w-3.5 h-3.5 text-blue-300" />
+                <span className="text-[11px] font-medium">Modo Oscuro</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
       {/* Background Video (mapaperu.mp4) - Fluid, smooth, non-lagging video playback */}
       <video
         ref={videoRef}

@@ -161,26 +161,51 @@ export default function App() {
     await dispararAlarmaSismica(sismoPrueba);
   };
 
-  // Dark and Light Mode state with persistence
+  // Dark and Light Mode state with persistence and automatic system detection
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     try {
       const saved = localStorage.getItem('alerta_peru_theme');
-      return saved === 'dark' ? 'dark' : 'light';
+      if (saved === 'dark' || saved === 'light') {
+        return saved;
+      }
+      // Detección automática según sistema operativo del dispositivo (iOS, Android, Windows, Mac)
+      if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        return 'dark';
+      }
+      return 'light';
     } catch (e) {
       return 'light';
     }
   });
 
   useEffect(() => {
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
+      if (metaThemeColor) metaThemeColor.setAttribute('content', '#0b0f19');
     } else {
       document.documentElement.classList.remove('dark');
+      if (metaThemeColor) metaThemeColor.setAttribute('content', '#0f172a');
     }
     try {
       localStorage.setItem('alerta_peru_theme', theme);
     } catch (e) {}
   }, [theme]);
+
+  // Escuchar cambios de preferencia de sistema si el usuario no ha forzado un tema manualmente
+  useEffect(() => {
+    try {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const handleSystemThemeChange = (e: MediaQueryListEvent) => {
+        const saved = localStorage.getItem('alerta_peru_theme');
+        if (!saved) {
+          setTheme(e.matches ? 'dark' : 'light');
+        }
+      };
+      mediaQuery.addEventListener('change', handleSystemThemeChange);
+      return () => mediaQuery.removeEventListener('change', handleSystemThemeChange);
+    } catch (e) {}
+  }, []);
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
@@ -222,7 +247,13 @@ export default function App() {
 
   // If user is not logged in, render the interactive cover with video & translucent glassmorphism
   if (!currentUser) {
-    return <LoginCover onLoginSuccess={handleLoginSuccess} />;
+    return (
+      <LoginCover
+        onLoginSuccess={handleLoginSuccess}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
+    );
   }
 
   const tabsConfig = [
@@ -259,7 +290,7 @@ export default function App() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans selection:bg-red-600 selection:text-white pb-20">
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0b0f19] text-slate-900 dark:text-slate-100 font-sans selection:bg-red-600 selection:text-white pb-20 transition-colors duration-200">
       {/* Top Header Navigation */}
       <HeaderNav
         user={currentUser}
